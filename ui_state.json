@@ -1,0 +1,14 @@
+{
+    "mode": "live",
+    "ticker": "NQ",
+    "timeframe": "1 day",
+    "strategy": "IBS Strategy (Average Down)",
+    "start_date": "2026-01-01",
+    "end_date": "2026-05-16",
+    "csv_path": "C:/Users/alanj/Downloads/CME_MINI_NQ1!, 1D_c0faf.csv",
+    "entry_ibs": 0.23,
+    "exit_ibs": 0.84,
+    "max_hold_days": 0,
+    "max_contracts": 0,
+    "trend_filter": false
+}

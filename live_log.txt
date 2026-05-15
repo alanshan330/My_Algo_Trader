@@ -1,0 +1,13 @@
+--- Live Log Started 2026-05-15 16:34:38.328374 ---
+[16:34:38] ==================================================
+[16:34:38]   IBS AUTOMATED LIVE TRADER — INITIALIZING  
+[16:34:38] ==================================================
+[16:34:38] Attempting to connect to IB Gateway on port 4002...
+[16:34:38] SUCCESS: Connected to IBKR (Port: 4002)
+[16:34:38] Target Contract: NQ (CME)
+[16:34:38] Checking Market State...
+[16:34:38] Current Price: 29176.50 | Current IBS: 0.2196
+[16:34:38] Current Position: 0 contracts
+[16:34:38] SIGNAL: IBS (0.2196) < 0.23. BUYING 1 CONTRACT.
+[16:34:38] Order Placed: PendingSubmit
+[16:34:38] Next bar in 12323.0 seconds...

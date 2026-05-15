@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Algo Trader | Premium Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=7">
+</head>
+<body>
+
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="container">
+        <header class="glass-panel">
+            <h1><span class="gradient-text">Antigravity</span> Algorithmic Trader</h1>
+            <p>Advanced Quantitative Execution Dashboard</p>
+        </header>
+
+        <nav class="strategy-tabs glass-panel" style="display: flex; gap: 10px; margin-bottom: 20px; padding: 10px;">
+            <button class="strat-tab active" data-target="ibs-strat">IBS Mean Reversion</button>
+            <button class="strat-tab" data-target="new-strat">⚡ Day Trading</button>
+            <button class="strat-tab" data-target="db-strat" style="margin-left: auto;">📊 Database & Analytics</button>
+        </nav>
+
+        <main>
+            <div class="grid-layout">
+                <!-- Settings Panel: IBS -->
+                <div class="glass-panel settings-panel" id="ibs-strat-panel">
+                    <h2>Configuration</h2>
+                    
+                    <div class="form-group">
+                        <label>Execution Mode</label>
+                        <div class="toggle-group" id="mode-toggle">
+                            <button class="toggle-btn active" data-value="backtest">Backtest</button>
+                            <button class="toggle-btn" data-value="optimize">Optimizer</button>
+                            <button class="toggle-btn live-btn" data-value="live">Live Trade</button>
+                        </div>
+                        <input type="hidden" id="mode" value="{{ state.get('mode', 'backtest') }}">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Ticker Symbol</label>
+                            <input type="text" id="ticker" value="{{ state.get('ticker', 'NQ') }}" class="glass-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Timeframe</label>
+                            <select id="timeframe" class="glass-input">
+                                <option value="1 min" {% if state.get('timeframe') == '1 min' %}selected{% endif %}>1 Minute</option>
+                                <option value="5 mins" {% if state.get('timeframe') == '5 mins' %}selected{% endif %}>5 Minutes</option>
+                                <option value="15 mins" {% if state.get('timeframe') == '15 mins' %}selected{% endif %}>15 Minutes</option>
+                                <option value="1 hour" {% if state.get('timeframe') == '1 hour' %}selected{% endif %}>1 Hour</option>
+                                <option value="4 hours" {% if state.get('timeframe') == '4 hours' %}selected{% endif %}>4 Hours</option>
+                                <option value="1 day" {% if state.get('timeframe') == '1 day' or not state.get('timeframe') %}selected{% endif %}>1 Day</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Strategy</label>
+                        <select id="strategy" class="glass-input">
+                            <option value="IBS Strategy (Average Down)" {% if state.get('strategy') == 'IBS Strategy (Average Down)' %}selected{% endif %}>IBS Strategy (Average Down)</option>
+                            <option value="IBS Strategy (Single Entry)" {% if state.get('strategy') == 'IBS Strategy (Single Entry)' %}selected{% endif %}>IBS Strategy (Single Entry)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Start Date</label>
+                            <input type="date" id="start_date" value="{{ state.get('start_date', '2021-01-01') }}" class="glass-input">
+                        </div>
+                        <div class="form-group">
+                            <label>End Date</label>
+                            <input type="date" id="end_date" value="{{ state.get('end_date', '2026-01-01') }}" class="glass-input">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Local CSV Path (For Backtesting Futures)</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="csv_path" value="{{ state.get('csv_path', '') }}" placeholder="C:/path/to/data.csv" class="glass-input" style="flex: 1;">
+                            <button class="glass-btn" id="browse-btn" type="button">Browse</button>
+                        </div>
+                    </div>
+
+                    <hr class="glass-hr">
+
+                    <h3>IBS Parameters</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Entry Threshold</label>
+                            <input type="number" step="0.01" id="entry_ibs" value="{{ state.get('entry_ibs', 0.21) }}" class="glass-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Exit Threshold</label>
+                            <input type="number" step="0.01" id="exit_ibs" value="{{ state.get('exit_ibs', 0.87) }}" class="glass-input">
+                        </div>
+                    </div>
+
+                    <hr class="glass-hr">
+                    
+                    <h3>Advanced Risk Management</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Max Hold Days (0=Off)</label>
+                            <input type="number" id="max_hold_days" value="{{ state.get('max_hold_days', 0) }}" class="glass-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Contracts (0=Off)</label>
+                            <input type="number" id="max_contracts" value="{{ state.get('max_contracts', 0) }}" class="glass-input">
+                        </div>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label class="switch">
+                            <input type="checkbox" id="trend_filter" {% if state.get('trend_filter') %}checked{% endif %}>
+                            <span class="slider round"></span>
+                        </label>
+                        <span class="checkbox-label">Require Price > 200 SMA (Bull Filter)</span>
+                    </div>
+
+                    <button class="launch-btn" id="launch-btn">
+                        <span class="btn-text">INITIALIZE ENGINE</span>
+                        <div class="spinner hidden" id="spinner"></div>
+                    </button>
+                    <button class="launch-btn hidden" id="stop-btn" style="background: linear-gradient(135deg, #ff4d4d, #b30000); margin-top: 10px;">
+                        <span class="btn-text">🛑 STOP ENGINE</span>
+                    </button>
+                </div>
+
+                <!-- Settings Panel: Day Trading -->
+                <div class="glass-panel settings-panel" id="new-strat-panel" style="display: none; width: 100%; grid-column: span 2;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h2>Day Trading Chart & Execution</h2>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="dt-ticker" value="{{ state.get('dt-ticker', 'NQ') }}" class="glass-input" style="width: 100px;">
+                            <select class="glass-input" id="dt-timeframe">
+                                <option value="5 secs" {% if state.get('dt-timeframe') == '5 secs' %}selected{% endif %}>5 Seconds</option>
+                                <option value="10 secs" {% if state.get('dt-timeframe') == '10 secs' %}selected{% endif %}>10 Seconds</option>
+                                <option value="15 secs" {% if state.get('dt-timeframe') == '15 secs' %}selected{% endif %}>15 Seconds</option>
+                                <option value="30 secs" {% if state.get('dt-timeframe') == '30 secs' %}selected{% endif %}>30 Seconds</option>
+                                <option value="1 min" {% if state.get('dt-timeframe') == '1 min' %}selected{% endif %}>1 Minute</option>
+                                <option value="5 mins" {% if state.get('dt-timeframe', '5 mins') == '5 mins' %}selected{% endif %}>5 Minutes</option>
+                                <option value="15 mins" {% if state.get('dt-timeframe') == '15 mins' %}selected{% endif %}>15 Minutes</option>
+                                <option value="1 hour" {% if state.get('dt-timeframe') == '1 hour' %}selected{% endif %}>1 Hour</option>
+                            </select>
+                            <button class="glass-btn" id="load-chart-btn" style="background: var(--accent-1); color: white;">Load Data</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart Container -->
+                    <div style="position: relative; width: 100%; height: 500px; border-radius: 12px; overflow: hidden; border: 1px solid var(--panel-border);">
+                        <div id="tvchart" style="width: 100%; height: 100%; background: rgba(0,0,0,0.5);"></div>
+                        <div id="chart-legend" style="position: absolute; top: 12px; left: 16px; z-index: 10; color: #d1d5db; font-size: 14px; font-family: 'Inter', sans-serif; pointer-events: none; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); display: flex; gap: 12px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Panel: Database -->
+                <div class="glass-panel settings-panel" id="db-strat-panel" style="display: none;">
+                    <h2>Database Analytics</h2>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem;">
+                        View and export historical live trades saved securely in your local SQLite database.
+                    </p>
+                    
+                    <button class="launch-btn" id="load-db-btn" style="background: linear-gradient(135deg, #10b981, #059669); margin-bottom: 10px;">
+                        <span class="btn-text">LOAD LIVE TRADES (DB)</span>
+                    </button>
+                    
+                    <button class="launch-btn" id="load-db-backtests-btn" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                        <span class="btn-text">LOAD PAST BACKTESTS (DB)</span>
+                    </button>
+                    
+                    <button class="glass-btn" onclick="alert('Export to CSV coming soon!')" style="width: 100%; margin-top: 15px; padding: 15px;">
+                        Export DB to CSV
+                    </button>
+                </div>
+
+                <!-- Output Panel -->
+                <div class="glass-panel output-panel">
+                    <div class="terminal-header">
+                        <div class="dots">
+                            <span class="dot red"></span>
+                            <span class="dot yellow"></span>
+                            <span class="dot green"></span>
+                        </div>
+                        <div class="tabs" style="flex: 1;">
+                            <button class="tab-btn active" data-target="terminal">Console Log</button>
+                            <button class="tab-btn" data-target="data-table">Data Results</button>
+                        </div>
+                        <button class="glass-btn hidden" id="export-btn" style="font-size: 0.8rem; padding: 4px 10px;">⬇ Export CSV</button>
+                    </div>
+                    
+                    <div class="tab-content active" id="terminal">
+                        <div class="log-line system">Antigravity Core v2.4.0 Initialized.</div>
+                        <div class="log-line system">Awaiting user command...</div>
+                    </div>
+                    
+                    <div class="tab-content" id="data-table">
+                        <div class="kpi-container hidden" id="kpi-container">
+                            <div class="kpi-card">
+                                <h4>Total Trades</h4>
+                                <div class="kpi-val" id="kpi-trades">-</div>
+                            </div>
+                            <div class="kpi-card">
+                                <h4>Win Rate</h4>
+                                <div class="kpi-val" id="kpi-winrate">-</div>
+                            </div>
+                            <div class="kpi-card">
+                                <h4>Max Drawdown</h4>
+                                <div class="kpi-val kpi-danger" id="kpi-drawdown">-</div>
+                            </div>
+                            <div class="kpi-card">
+                                <h4>Total Net Profit</h4>
+                                <div class="kpi-val kpi-success" id="kpi-profit">-</div>
+                            </div>
+                        </div>
+
+                        <div class="table-container">
+                            <table id="results-table">
+                                <thead>
+                                    <tr id="table-head"></tr>
+                                </thead>
+                                <tbody id="table-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="{{ url_for('static', filename='main.js') }}?v=24"></script>
+</body>
+</html>

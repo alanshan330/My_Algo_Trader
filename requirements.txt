@@ -1,0 +1,8 @@
+PyYAML>=6.0.1
+lumibot
+alpaca-trade-api
+yfinance
+python-dotenv
+pydantic
+pydantic-settings
+customtkinter
