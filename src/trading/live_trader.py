@@ -12,8 +12,8 @@ sys.path.insert(0, ROOT_DIR)
 from src.trading import db
 
 STATE_FILE = os.path.join(ROOT_DIR, "ui_state.json")
-LIVE_TRADES_FILE = os.path.join(ROOT_DIR, "live_trades.csv")
-LOG_FILE = os.path.join(ROOT_DIR, "live_log.txt")
+LIVE_TRADES_FILE = os.path.join(ROOT_DIR, "results", "live_trades.csv")
+LOG_FILE = os.path.join(ROOT_DIR, "results", "live_log.txt")
 
 def print_log(msg):
     timestamp = datetime.now().strftime('%H:%M:%S')
@@ -137,27 +137,52 @@ def main():
             print_log(f"Current Position: {current_size} contracts")
             
             # Logic
-            if current_ibs < entry_ibs:
-                if not is_avg_down and current_size > 0:
-                    print_log("Entry signal triggered but 'Single Entry' mode active. Skipping.")
-                elif max_contracts > 0 and current_size >= max_contracts:
-                    print_log(f"Entry signal triggered but Max Contracts ({max_contracts}) reached. Skipping.")
-                else:
-                    print_log(f"SIGNAL: IBS ({current_ibs:.4f}) < {entry_ibs}. BUYING 1 CONTRACT.")
-                    order = MarketOrder('BUY', 1)
-                    trade = ib.placeOrder(contract, order)
-                    print_log(f"Order Placed: {trade.orderStatus.status}")
-                    log_trade("BUY", 1, last_bar.close, ticker, current_ibs)
-            
-            elif current_ibs > exit_ibs and current_size > 0:
-                print_log(f"SIGNAL: IBS ({current_ibs:.4f}) > {exit_ibs}. EXITING POSITION.")
-                order = MarketOrder('SELL', current_size)
-                trade = ib.placeOrder(contract, order)
-                print_log(f"Exit Order Placed: {trade.orderStatus.status}")
-                log_trade("SELL", current_size, last_bar.close, ticker, current_ibs)
-            
+            strategy_name = state.get("strategy", "IBS")
+            if "Silver Bullet" in strategy_name:
+                # Need last 4 bars for FVG
+                if len(bars) >= 4:
+                    c1 = bars[-4]
+                    c3 = bars[-2]
+                    c_low, c_high = last_bar.low, last_bar.high
+                    
+                    hour = datetime.now().hour
+                    if hour == 10 and current_size == 0:
+                        # Bullish FVG Setup
+                        if c1.high < c3.low and c_low <= c3.low:
+                            print_log(f"SILVER BULLET: Retraced into Bullish FVG! BUYING 1 CONTRACT.")
+                            order = MarketOrder('BUY', 1)
+                            trade = ib.placeOrder(contract, order)
+                            print_log(f"Order Placed: {trade.orderStatus.status}")
+                            log_trade("BUY", 1, last_bar.close, ticker, 0, strategy="ICT Silver Bullet")
+                        # Bearish FVG Setup
+                        elif c1.low > c3.high and c_high >= c3.high:
+                            print_log(f"SILVER BULLET: Retraced into Bearish FVG! SELLING 1 CONTRACT.")
+                            order = MarketOrder('SELL', 1)
+                            trade = ib.placeOrder(contract, order)
+                            print_log(f"Order Placed: {trade.orderStatus.status}")
+                            log_trade("SELL SHORT", 1, last_bar.close, ticker, 0, strategy="ICT Silver Bullet")
             else:
-                print_log("No signal. Holding.")
+                if current_ibs < entry_ibs:
+                    if not is_avg_down and current_size > 0:
+                        print_log("Entry signal triggered but 'Single Entry' mode active. Skipping.")
+                    elif max_contracts > 0 and current_size >= max_contracts:
+                        print_log(f"Entry signal triggered but Max Contracts ({max_contracts}) reached. Skipping.")
+                    else:
+                        print_log(f"SIGNAL: IBS ({current_ibs:.4f}) < {entry_ibs}. BUYING 1 CONTRACT.")
+                        order = MarketOrder('BUY', 1)
+                        trade = ib.placeOrder(contract, order)
+                        print_log(f"Order Placed: {trade.orderStatus.status}")
+                        log_trade("BUY", 1, last_bar.close, ticker, current_ibs)
+                
+                elif current_ibs > exit_ibs and current_size > 0:
+                    print_log(f"SIGNAL: IBS ({current_ibs:.4f}) > {exit_ibs}. EXITING POSITION.")
+                    order = MarketOrder('SELL', current_size)
+                    trade = ib.placeOrder(contract, order)
+                    print_log(f"Exit Order Placed: {trade.orderStatus.status}")
+                    log_trade("SELL", current_size, last_bar.close, ticker, current_ibs)
+                
+                else:
+                    print_log("No signal. Holding.")
 
             # Synchronize sleep with the bar boundary
             now_ts = time.time()

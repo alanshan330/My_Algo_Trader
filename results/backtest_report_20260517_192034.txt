@@ -1,0 +1,24 @@
+Strategy Execution Report
+=========================
+
+Using pre-loaded chart data from UI for backtest...
+Resampled 1385 x 1-min bars -> 1385 x 15 mins bars.
+
+--- Executed Trades (NQ Contracts ($20/pt)) | Mode: ICT Silver Bullet ---
+[2026-04-30 10:45] SELL SHORT 1 Contract @ 27365.25
+[2026-04-30 13:45] BUY TO COVER (Stop Loss) 1 Contract @ 27514.25 | P/L: -149.00 pts
+[2026-05-01 10:30] BUY 1 Contract @ 27752.50
+[2026-05-05 09:30] SELL (Take Profit) 1 Contract @ 28068.00 | P/L: +315.50 pts
+[2026-05-05 10:00] BUY 1 Contract @ 28064.75
+[2026-05-05 16:15] SELL (Take Profit) 1 Contract @ 28246.75 | P/L: +182.00 pts
+[2026-05-13 10:15] SELL SHORT 1 Contract @ 29225.75
+[2026-05-13 10:45] BUY TO COVER (Stop Loss) 1 Contract @ 29304.75 | P/L: -79.00 pts
+
+--- Final Results (2026-04-26 to 2026-05-17) ---
+Total Trades: 4
+Win Rate: 50.00%
+Max Drawdown: -$2980.00
+Total Points Captured: +269.50 pts
+Total Dollar Return (1 NQ Contract): $+5390.00
+Cumulative Return (Uncompounded %): +0.97%
+-------------------------------------------------

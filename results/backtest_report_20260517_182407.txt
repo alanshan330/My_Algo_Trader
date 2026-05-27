@@ -1,0 +1,6 @@
+Strategy Execution Report
+=========================
+
+Attempting to download data for NQ directly from Interactive Brokers (TWS)...
+IBKR Connection Error: Could not connect to TWS on port 7497 or 7496.
+Please ensure TWS is open, logged in, and 'Enable ActiveX and Socket Clients' is checked in Settings -> API -> Settings.

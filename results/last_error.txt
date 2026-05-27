@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "C:\Users\alanj\.gemini\antigravity\scratch\ai_algo_trader\src\web\app.py", line 168, in run_backtest_api
+    report_text, trades_list, ledger = run_pandas_backtest(params)
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alanj\.gemini\antigravity\scratch\ai_algo_trader\scripts\run_app.py", line 46, in run_pandas_backtest
+    elif csv_path and os.path.exists(csv_path):
+                      ^^
+UnboundLocalError: cannot access local variable 'os' where it is not associated with a value

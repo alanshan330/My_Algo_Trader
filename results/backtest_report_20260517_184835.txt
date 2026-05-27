@@ -1,0 +1,7 @@
+Strategy Execution Report
+=========================
+
+Using pre-loaded chart data from UI for backtest...
+
+--- Executed Trades (NQ Contracts ($20/pt)) | Mode: ICT Silver Bullet ---
+No trades executed based on criteria.

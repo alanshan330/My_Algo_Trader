@@ -169,8 +169,10 @@ def run_backtest_api():
         
         # Save to CSV and Text
         stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        report_path = os.path.join(ROOT_DIR, f"backtest_report_{stamp}.txt")
-        csv_path = os.path.join(ROOT_DIR, f"backtest_trades_{stamp}.csv")
+        RESULTS_DIR = os.path.join(ROOT_DIR, "results")
+        os.makedirs(RESULTS_DIR, exist_ok=True)
+        report_path = os.path.join(RESULTS_DIR, f"backtest_report_{stamp}.txt")
+        csv_path = os.path.join(RESULTS_DIR, f"backtest_trades_{stamp}.csv")
         
         with open(report_path, "w") as f:
             f.write("Strategy Execution Report\n")
@@ -187,12 +189,29 @@ def run_backtest_api():
         dd_match = re.search(r'Max Drawdown:\s*-\$?([\d\.]+)', report_text)
         pnl_match = re.search(r'Total Dollar Return[^:]*:\s*\$?([\+\-\d\.]+)', report_text)
         
+        avg_pl_match = re.search(r'Average Trade P/L:\s*\$?([\+\-\d\.]+)', report_text)
+        pf_match = re.search(r'Profit Factor:\s*([\d\.]+)', report_text)
+        sr_match = re.search(r'Sharpe Ratio \(Trade\):\s*([\-\d\.]+)', report_text)
+        exp_match = re.search(r'Expectancy:\s*\$?([\+\-\d\.]+)', report_text)
+        mcl_match = re.search(r'Max Consecutive Losses:\s*(\d+)', report_text)
+        aw_match = re.search(r'Average Win:\s*\$?([\+\-\d\.]+)', report_text)
+        al_match = re.search(r'Average Loss:\s*-\$?([\d\.]+)', report_text)
+        
         tr = int(tr_match.group(1)) if tr_match else 0
         wr = float(wr_match.group(1)) if wr_match else 0.0
         dd = float(dd_match.group(1)) if dd_match else 0.0
         pnl = float(pnl_match.group(1).replace('+', '')) if pnl_match else 0.0
         
+        avg_pl = float(avg_pl_match.group(1).replace('+', '')) if avg_pl_match else 0.0
+        pf = float(pf_match.group(1)) if pf_match else 0.0
+        sr = float(sr_match.group(1)) if sr_match else 0.0
+        exp = float(exp_match.group(1).replace('+', '')) if exp_match else 0.0
+        mcl = int(mcl_match.group(1)) if mcl_match else 0
+        aw = float(aw_match.group(1).replace('+', '')) if aw_match else 0.0
+        al = float(al_match.group(1)) if al_match else 0.0
+        
         from src.trading import db
+        import json
         db.log_backtest_run(
             strategy=params.get('strategy', 'IBS Mean Reversion'),
             ticker=params['symbol'],
@@ -200,7 +219,17 @@ def run_backtest_api():
             total_trades=tr,
             win_rate=wr,
             total_profit=pnl,
-            max_drawdown=dd
+            max_drawdown=dd,
+            avg_trade_pl=avg_pl,
+            profit_factor=pf,
+            sharpe_ratio=sr,
+            expectancy=exp,
+            max_consec_loss=mcl,
+            avg_win=aw,
+            avg_loss=al,
+            entry_ibs=float(params.get('entry_threshold', 0.0)),
+            exit_ibs=float(params.get('exit_threshold', 0.0)),
+            ledger_json=json.dumps(ledger)
         )
             
         return jsonify({
@@ -212,7 +241,28 @@ def run_backtest_api():
         })
     except Exception as e:
         import traceback
+        tb = traceback.format_exc()
         traceback.print_exc()
+        with open(os.path.join(ROOT_DIR, "results", "last_error.txt"), "w") as f:
+            f.write(tb)
+        return jsonify({"status": "error", "message": tb})
+
+@app.route('/api/last_backtest', methods=['GET'])
+def get_last_backtest():
+    """Returns the most recently saved backtest CSV from disk."""
+    try:
+        pattern = os.path.join(ROOT_DIR, 'results', 'backtest_trades_*.csv')
+        files = sorted(glob.glob(pattern), reverse=True)
+        if not files:
+            return jsonify({"status": "error", "message": "No backtest files found."})
+        latest = files[0]
+        df = pd.read_csv(latest)
+        return jsonify({
+            "status": "success",
+            "file": os.path.basename(latest),
+            "data": df.to_dict('records')
+        })
+    except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 
 @app.route('/api/optimize', methods=['POST'])
@@ -227,7 +277,7 @@ def run_optimize_api():
         result = subprocess.run([sys.executable, script_path], capture_output=True, text=True)
         
         # Read the latest generated report to send back to the UI
-        search_pattern = os.path.join(ROOT_DIR, "ibs_optimization_report_*.csv")
+        search_pattern = os.path.join(ROOT_DIR, "results", "ibs_optimization_report_*.csv")
         files = glob.glob(search_pattern)
         data_json = []
         if files:
@@ -243,7 +293,7 @@ live_process = None
 
 @app.route('/api/live_results', methods=['GET'])
 def get_live_results():
-    file_path = os.path.join(ROOT_DIR, "live_trades.csv")
+    file_path = os.path.join(ROOT_DIR, "results", "live_trades.csv")
     if os.path.exists(file_path):
         try:
             df = pd.read_csv(file_path)
@@ -270,11 +320,93 @@ def get_db_backtests():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 
+@app.route('/api/db/optimizations', methods=['GET'])
+def get_db_optimizations():
+    try:
+        from src.trading import db
+        runs = db.get_all_optimizer_runs()
+        return jsonify({"status": "success", "data": runs})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
 @app.route('/api/chart_data', methods=['POST'])
 def get_chart_data():
     req = request.json
     ticker = req.get('ticker', 'NQ')
     timeframe = req.get('timeframe', '5 mins')
+    csv_path = req.get('csv_path', '').strip()
+
+    # --- CSV Path: load directly and resample, skip IBKR entirely ---
+    if csv_path and os.path.exists(csv_path):
+        try:
+            import pandas as pd
+            import numpy as np
+            df = pd.read_csv(csv_path)
+            # Normalize column names
+            rename_map = {}
+            for col in df.columns:
+                lc = col.strip().lower()
+                if lc in ['time', 'date', 'datetime', 'timestamp']: rename_map[col] = 'Date'
+                elif lc == 'open':  rename_map[col] = 'Open'
+                elif lc == 'high':  rename_map[col] = 'High'
+                elif lc == 'low':   rename_map[col] = 'Low'
+                elif lc in ['close', 'last']: rename_map[col] = 'Close'
+            df.rename(columns=rename_map, inplace=True)
+            if 'Date' not in df.columns:
+                return jsonify({"status": "error", "message": "CSV must have a Date/Time column."})
+            df['Date'] = pd.to_datetime(df['Date'])
+            df.set_index('Date', inplace=True)
+            df.sort_index(inplace=True)
+            df = df[['Open', 'High', 'Low', 'Close']].apply(pd.to_numeric, errors='coerce').dropna()
+
+            # Resample to requested timeframe
+            tf_map = {
+                "1 min": "1min", "5 mins": "5min", "15 mins": "15min",
+                "30 mins": "30min", "1 hour": "1h", "4 hours": "4h", "1 day": "1D"
+            }
+            rule = tf_map.get(timeframe, "")
+            if rule and rule != "1min":
+                df = df.resample(rule).agg({"Open": "first", "High": "max", "Low": "min", "Close": "last"}).dropna()
+
+            # Build chart_data list
+            clean_data = []
+            for ts, row in df.iterrows():
+                clean_data.append({
+                    "time": int(ts.timestamp()),
+                    "open": round(float(row['Open']), 4),
+                    "high": round(float(row['High']), 4),
+                    "low":  round(float(row['Low']), 4),
+                    "close": round(float(row['Close']), 4),
+                    "ema9": 0, "ema21": 0, "stoch_k": 0, "stoch_d": 0, "td_setup": 0, "td_dir": 0
+                })
+
+            # Compute indicators on resampled data
+            closes = df['Close']
+            ema9  = closes.ewm(span=9,  adjust=False).mean()
+            ema21 = closes.ewm(span=21, adjust=False).mean()
+            for i, item in enumerate(clean_data):
+                item['ema9']  = round(float(ema9.iloc[i]),  4)
+                item['ema21'] = round(float(ema21.iloc[i]), 4)
+
+            return jsonify({"status": "success", "data": clean_data})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return jsonify({"status": "error", "message": str(e)})
+
+    # --- Block IBKR for futures (no CSV provided) ---
+    FUTURES_TICKERS = {"NQ", "ES", "YM", "RTY", "CL", "GC", "MNQ", "MES", "MYM", "M2K", "ZB", "ZN"}
+    if ticker.upper() in FUTURES_TICKERS:
+        return jsonify({
+            "status": "error",
+            "message": (
+                f"'{ticker}' is a futures contract. Please:\n"
+                "1. Click the 'Browse CSV' button to select your historical data file.\n"
+                "2. Then click 'Load Data' again.\n\n"
+                "Supported formats: NinjaTrader, TradeStation, or any CSV with Date/Open/High/Low/Close columns."
+            )
+        })
+
     import asyncio
     try:
         asyncio.get_event_loop()
@@ -429,7 +561,7 @@ def get_chart_data():
 
 @app.route('/api/live_logs', methods=['GET'])
 def get_live_logs():
-    log_path = os.path.join(ROOT_DIR, "live_log.txt")
+    log_path = os.path.join(ROOT_DIR, "results", "live_log.txt")
     if os.path.exists(log_path):
         try:
             with open(log_path, "r") as f:

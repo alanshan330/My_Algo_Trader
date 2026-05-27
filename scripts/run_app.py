@@ -25,107 +25,161 @@ def run_pandas_backtest(params):
         start_date = end_date - timedelta(days=365*3)
 
     csv_path = params.get("csv_path", "")
-    futures_list = ["NQ", "ES", "YM", "RTY", "CL", "GC", "NQ=F", "ES=F"]
-    is_future = any(symbol.upper().startswith(f) for f in futures_list)
-    
-    if csv_path and os.path.exists(csv_path):
-        log(f"Loading custom data from CSV:\n{csv_path}")
+    futures_list = ["NQ", "ES", "YM", "RTY", "CL", "GC", "MNQ", "MES", "MYM", "M2K"]
+    is_future = any(symbol.upper() == f for f in futures_list)
+
+    if params.get("chart_data"):
+        log("Using pre-loaded chart data from UI for backtest...")
+        df = pd.DataFrame(params["chart_data"])
+        try:
+            def parse_time(t):
+                if isinstance(t, (int, float)):
+                    return datetime.fromtimestamp(t)
+                return pd.to_datetime(t)
+            df['Date'] = df['time'].apply(parse_time)
+            df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close'}, inplace=True)
+            df.set_index('Date', inplace=True)
+            df.sort_index(inplace=True)
+        except Exception as e:
+            raise ValueError(f"chart_data parse error: {e} | cols={df.columns.tolist()} | row0={df.iloc[0].to_dict() if not df.empty else 'empty'}")
+
+    elif csv_path and os.path.exists(csv_path):
+        log(f"Loading futures data from CSV: {csv_path}")
         df = pd.read_csv(csv_path)
         rename_map = {}
         for col in df.columns:
-            lower_col = col.strip().lower()
-            if lower_col in ['time', 'date']: rename_map[col] = 'Date'
-            elif lower_col == 'open': rename_map[col] = 'Open'
-            elif lower_col == 'high': rename_map[col] = 'High'
-            elif lower_col == 'low': rename_map[col] = 'Low'
-            elif lower_col == 'close': rename_map[col] = 'Close'
+            lc = col.strip().lower()
+            if lc in ['time', 'date', 'datetime', 'timestamp']: rename_map[col] = 'Date'
+            elif lc == 'open': rename_map[col] = 'Open'
+            elif lc == 'high': rename_map[col] = 'High'
+            elif lc == 'low': rename_map[col] = 'Low'
+            elif lc in ['close', 'last']: rename_map[col] = 'Close'
         df.rename(columns=rename_map, inplace=True)
+        if 'Date' not in df.columns:
+            raise ValueError("CSV must have a Date/Time column.")
         df['Date'] = pd.to_datetime(df['Date'])
         df.set_index('Date', inplace=True)
         df.sort_index(inplace=True)
         df = df[(df.index >= start_date) & (df.index <= end_date)]
+        log(f"Loaded {len(df)} rows from CSV ({start_date.date()} to {end_date.date()})")
+
+    elif is_future:
+        log(f"ERROR: '{symbol}' is a futures contract. Alpaca does not provide futures data.")
+        log("Please provide a CSV file with historical data.")
+        log("  - NinjaTrader, TradeStation, or Norgate Data can export NQ/ES CSVs.")
+        log("  - Paste the full file path into the 'CSV Path' field in the Day Trading tab, then re-run.")
+        return "\n".join(output), [], []
+
     else:
-        log(f"Attempting to download data for {symbol} directly from Interactive Brokers (TWS)...")
-        import nest_asyncio
-        nest_asyncio.apply()
-        from ib_insync import IB, ContFuture, Stock, util
-        
-        ib = IB()
-        try:
-            # Try connecting to TWS Paper/API (7497) or Live (7496)
+        # Stock: use Alpaca market data API (falls back to yfinance if key not set)
+        tf_map_alpaca = {
+            "1 min":  (1,  "Minute"),
+            "5 mins": (5,  "Minute"),
+            "15 mins":(15, "Minute"),
+            "30 mins":(30, "Minute"),
+            "1 hour": (1,  "Hour"),
+            "4 hours":(4,  "Hour"),
+            "1 day":  (1,  "Day"),
+        }
+        raw_tf = params.get("timeframe", params.get("sleep_time", "1 day"))
+        alpaca_tf = tf_map_alpaca.get(raw_tf, (1, "Day"))
+
+        import dotenv as _dotenv
+        _dotenv.load_dotenv(override=True)
+        alpaca_key    = os.getenv("ALPACA_API_KEY", "")
+        alpaca_secret = os.getenv("ALPACA_API_SECRET", "")
+
+        if alpaca_key and alpaca_secret:
+            log(f"Downloading {symbol} ({raw_tf}) from Alpaca ({start_date.date()} to {end_date.date()})...")
             try:
-                ib.connect('127.0.0.1', 7497, clientId=1)
-            except:
-                try:
-                    ib.connect('127.0.0.1', 7496, clientId=1)
-                except Exception:
-                    log("IBKR Connection Error: Could not connect to TWS on port 7497 or 7496.")
-                    log("Please ensure TWS is open, logged in, and 'Enable ActiveX and Socket Clients' is checked in Settings -> API -> Settings.")
+                from alpaca.data.historical import StockHistoricalDataClient
+                from alpaca.data.requests import StockBarsRequest
+                from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
+                unit_map = {"Minute": TimeFrameUnit.Minute, "Hour": TimeFrameUnit.Hour, "Day": TimeFrameUnit.Day}
+                tf_obj = TimeFrame(alpaca_tf[0], unit_map[alpaca_tf[1]])
+                client = StockHistoricalDataClient(alpaca_key, alpaca_secret)
+                req = StockBarsRequest(
+                    symbol_or_symbols=symbol,
+                    timeframe=tf_obj,
+                    start=start_date,
+                    end=end_date + timedelta(days=1)
+                )
+                raw = client.get_stock_bars(req).df
+                if raw is None or raw.empty:
+                    log(f"Error: No data from Alpaca for '{symbol}'. Check ticker symbol.")
                     return "\n".join(output), [], []
-            
-            ib_symbol = symbol.replace("=F", "")
-            
-            # Determine if it is a Stock or Future
-            futures_list = ["NQ", "ES", "YM", "RTY", "CL", "GC", "BTC", "ETH"]
-            is_future_contract = any(ib_symbol.upper() == f for f in futures_list)
-            
-            if is_future_contract:
-                if ib_symbol == "YM":
-                    contract = ContFuture('YM', 'CBOT')
-                elif ib_symbol in ["GC", "CL"]:
-                    contract = ContFuture(ib_symbol, 'NYMEX')
-                elif ib_symbol in ["NQ", "ES", "RTY"]:
-                    contract = ContFuture(ib_symbol, 'CME')
-                else:
-                    contract = ContFuture(ib_symbol, 'CME') # default fallback
-            else:
-                contract = Stock(ib_symbol, 'SMART', 'USD')
-                
-            ib.qualifyContracts(contract)
-            
-            days_to_now = (datetime.now() - start_date).days
-            duration = f"{max(1, days_to_now)} D"
-            
-            log(f"Requesting '{duration}' of Historical Data from IBKR for {ib_symbol}...")
-            
-            raw_tf = params.get("sleep_time", "1 day")
-            use_rth = params.get("use_rth", False)
-            show_type = 'BID' if is_future_contract else 'TRADES'
-            
-            bars = ib.reqHistoricalData(
-                contract, endDateTime='',
-                durationStr=duration,
-                barSizeSetting=raw_tf,
-                whatToShow=show_type,
-                useRTH=use_rth,
-                formatDate=1
-            )
-            ib.disconnect()
-            
-            if not bars:
-                log(f"Error: No data returned from IBKR for {ib_symbol}.")
+                # Flatten multi-index (symbol, timestamp) -> just timestamp
+                raw = raw.reset_index()
+                raw = raw.rename(columns={"timestamp": "Date", "open": "Open", "high": "High",
+                                           "low": "Low", "close": "Close"})
+                raw["Date"] = pd.to_datetime(raw["Date"]).dt.tz_localize(None)
+                df = raw.set_index("Date")[["Open", "High", "Low", "Close"]].copy()
+                df.sort_index(inplace=True)
+                log(f"Downloaded {len(df)} bars from Alpaca.")
+            except Exception as e:
+                log(f"Alpaca error: {e} -- falling back to Yahoo Finance.")
+                alpaca_key = ""  # trigger fallback below
+
+        if not alpaca_key or not alpaca_secret:
+            # Fallback: yfinance
+            tf_map_yf = {
+                "1 min": "1m", "5 mins": "5m", "15 mins": "15m",
+                "30 mins": "30m", "1 hour": "60m", "4 hours": "60m", "1 day": "1d"
+            }
+            yf_interval = tf_map_yf.get(raw_tf, "1d")
+            days_back = (end_date - start_date).days
+            if yf_interval in ["1m", "5m", "15m", "30m"] and days_back > 59:
+                log(f"Note: yfinance intraday limited to 60 days. Adjusting start date.")
+                start_date = end_date - timedelta(days=59)
+            log(f"Downloading {symbol} ({yf_interval}) from Yahoo Finance ({start_date.date()} to {end_date.date()})...")
+            try:
+                import yfinance as yf
+                raw = yf.download(symbol, start=start_date, end=end_date + timedelta(days=1),
+                                  interval=yf_interval, progress=False, auto_adjust=True)
+                if raw is None or raw.empty:
+                    log(f"Error: No data from Yahoo Finance for '{symbol}'.")
+                    return "\n".join(output), [], []
+                if isinstance(raw.columns, pd.MultiIndex):
+                    raw.columns = raw.columns.get_level_values(0)
+                df = raw[['Open', 'High', 'Low', 'Close']].copy()
+                df.index.name = 'Date'
+                df.index = pd.to_datetime(df.index).tz_localize(None)
+                df.sort_index(inplace=True)
+                log(f"Downloaded {len(df)} bars from Yahoo Finance.")
+            except Exception as e:
+                log(f"Yahoo Finance error: {e}")
                 return "\n".join(output), [], []
-                
-            df = util.df(bars)
-            df.rename(columns={"date": "Date", "open": "Open", "high": "High", "low": "Low", "close": "Close"}, inplace=True)
-            df['Date'] = pd.to_datetime(df['Date'])
-            df.set_index('Date', inplace=True)
-            df.index = df.index.tz_localize(None)
-            
-            # Filter locally to obey the ContFuture API restriction
-            df = df[(df.index >= start_date) & (df.index <= end_date)]
-            
-        except Exception as e:
-            log(f"IBKR API Error: {e}")
-            if ib.isConnected(): ib.disconnect()
-            return "\n".join(output), [], []
-            
+
     # Drop missing
     df = df.dropna()
-    
+
+    # --- Timeframe Resampling ---
+    # Map UI timeframe labels to pandas offset aliases
+    tf_resample_map = {
+        "1 min":   "1min",
+        "5 mins":  "5min",
+        "15 mins": "15min",
+        "30 mins": "30min",
+        "1 hour":  "1h",
+        "4 hours": "4h",
+        "1 day":   "1D",
+    }
+    requested_tf = params.get("timeframe", params.get("sleep_time", ""))
+    resample_rule = tf_resample_map.get(requested_tf, "")
+
+    if resample_rule and resample_rule != "1min":
+        # Only resample if a timeframe is chosen and it's not already 1-min
+        pre_len = len(df)
+        ohlc_dict = {"Open": "first", "High": "max", "Low": "min", "Close": "last"}
+        df = df[["Open", "High", "Low", "Close"]].resample(resample_rule).agg(ohlc_dict).dropna()
+        log(f"Resampled {pre_len} x 1-min bars -> {len(df)} x {requested_tf} bars.")
+    else:
+        log(f"Using data as-is ({len(df)} bars, timeframe: {requested_tf or 'auto'}).")
+
     df['High'] = pd.to_numeric(df['High'])
     df['Low'] = pd.to_numeric(df['Low'])
     df['Close'] = pd.to_numeric(df['Close'])
+    df['Open'] = pd.to_numeric(df['Open'])
     
     # ATR Calculation
     tr1 = df['High'] - df['Low']
@@ -140,12 +194,34 @@ def run_pandas_backtest(params):
     high = df['High']
     low = df['Low']
     close = df['Close']
+    
+    strategy_name = params.get("strategy", "IBS Strategy (Average Down)")
+    if "Silver Bullet" in strategy_name:
+        return run_sb_backtest(df, params, log, output)
         
     # Determine multiplier
     raw_ticker = params["symbol"].upper()
     multiplier = 1
     contract_type = "Shares"
-    if "NQ" in raw_ticker: 
+    if raw_ticker == "MNQ":
+        multiplier = 2
+        contract_type = "MNQ Contracts ($2/pt)"
+    elif raw_ticker == "MES":
+        multiplier = 5
+        contract_type = "MES Contracts ($5/pt)"
+    elif raw_ticker == "MYM":
+        multiplier = 0.5
+        contract_type = "MYM Contracts ($0.5/pt)"
+    elif raw_ticker == "M2K":
+        multiplier = 5
+        contract_type = "M2K Contracts ($5/pt)"
+    elif raw_ticker == "MCL":
+        multiplier = 100
+        contract_type = "MCL Contracts ($100/pt)"
+    elif raw_ticker == "MGC":
+        multiplier = 10
+        contract_type = "MGC Contracts ($10/pt)"
+    elif "NQ" in raw_ticker: 
         multiplier = 20
         contract_type = "NQ Contracts ($20/pt)"
     elif "ES" in raw_ticker: 
@@ -381,18 +457,43 @@ def run_pandas_backtest(params):
         log("No trades executed based on criteria.")
         return "\n".join(output), [], []
         
+    import numpy as np
+    
     total_trades = len(trades)
-    winning_trades = len([t for t in trades if t["Profit %"] > 0])
-    win_rate = (winning_trades / total_trades) * 100
+    winning_trades = [t for t in trades if t["Dollars"] > 0]
+    losing_trades = [t for t in trades if t["Dollars"] <= 0]
+    
+    num_wins = len(winning_trades)
+    num_losses = len(losing_trades)
+    win_rate = (num_wins / total_trades) * 100 if total_trades > 0 else 0
+    
+    gross_profit = sum(t["Dollars"] for t in winning_trades)
+    gross_loss = abs(sum(t["Dollars"] for t in losing_trades))
+    profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (99.99 if gross_profit > 0 else 0.0)
+    
+    avg_win = (gross_profit / num_wins) if num_wins > 0 else 0.0
+    avg_loss = (gross_loss / num_losses) if num_losses > 0 else 0.0
+    
+    total_dollars = sum(t["Dollars"] for t in trades)
+    avg_trade_pl = total_dollars / total_trades if total_trades > 0 else 0.0
+    
+    trade_profits = [t["Dollars"] for t in trades]
+    if len(trade_profits) > 1 and np.std(trade_profits) > 0:
+        sharpe_ratio = np.mean(trade_profits) / np.std(trade_profits)
+    else:
+        sharpe_ratio = 0.0
+        
+    expectancy = (win_rate / 100 * avg_win) - ((1 - win_rate / 100) * avg_loss)
     
     total_return_pct = sum(t["Profit %"] for t in trades)
     total_points = sum(t["Points"] for t in trades)
-    total_dollars = sum(t["Dollars"] for t in trades)
     
-    # Calculate Max Drawdown
+    max_consec_loss = 0
+    current_consec = 0
     equity = 0
     peak_equity = 0
     max_dd = 0
+    
     for t in trades:
         equity += t["Dollars"]
         if equity > peak_equity:
@@ -400,14 +501,231 @@ def run_pandas_backtest(params):
         dd = peak_equity - equity
         if dd > max_dd:
             max_dd = dd
+            
+        if t["Dollars"] < 0:
+            current_consec += 1
+            if current_consec > max_consec_loss:
+                max_consec_loss = current_consec
+        else:
+            current_consec = 0
     
     log(f"\n--- Final Results ({start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}) ---")
     log(f"Total Trades: {total_trades}")
     log(f"Win Rate: {win_rate:.2f}%")
-    log(f"Max Drawdown: -${max_dd:.2f}")
+    log(f"Total Dollar Return (1 {raw_ticker} Contract): {total_points:+.2f}")
+    log(f"Max Drawdown: -{max_dd / multiplier:.2f}")
     log(f"Total Points Captured: {total_points:+.2f} pts")
-    log(f"Total Dollar Return (1 {raw_ticker} Contract): ${total_dollars:+.2f}")
     log(f"Cumulative Return (Uncompounded %): {total_return_pct:+.2f}%")
+    log(f"Average Trade P/L: {avg_trade_pl / multiplier:.2f}")
+    log(f"Profit Factor: {profit_factor:.2f}")
+    log(f"Sharpe Ratio (Trade): {sharpe_ratio:.2f}")
+    log(f"Expectancy: {expectancy / multiplier:.2f}")
+    log(f"Max Consecutive Losses: {max_consec_loss}")
+    log(f"Average Win: {avg_win / multiplier:.2f}")
+    log(f"Average Loss: -{avg_loss / multiplier:.2f}")
+    log("-------------------------------------------------")
+    
+    return "\n".join(output), trades, ledger
+
+def run_sb_backtest(df, params, log, output):
+    start_date = df.index[0]
+    end_date = df.index[-1]
+    raw_ticker = params["symbol"].upper()
+    multiplier = 1
+    contract_type = "Shares"
+    if raw_ticker == "MNQ":
+        multiplier = 2
+        contract_type = "MNQ Contracts ($2/pt)"
+    elif raw_ticker == "MES":
+        multiplier = 5
+        contract_type = "MES Contracts ($5/pt)"
+    elif raw_ticker == "MYM":
+        multiplier = 0.5
+        contract_type = "MYM Contracts ($0.5/pt)"
+    elif raw_ticker == "M2K":
+        multiplier = 5
+        contract_type = "M2K Contracts ($5/pt)"
+    elif raw_ticker == "MCL":
+        multiplier = 100
+        contract_type = "MCL Contracts ($100/pt)"
+    elif raw_ticker == "MGC":
+        multiplier = 10
+        contract_type = "MGC Contracts ($10/pt)"
+    elif "NQ" in raw_ticker: 
+        multiplier = 20
+        contract_type = "NQ Contracts ($20/pt)"
+    elif "ES" in raw_ticker: 
+        multiplier = 50
+        contract_type = "ES Contracts ($50/pt)"
+    elif "YM" in raw_ticker: 
+        multiplier = 5
+        contract_type = "YM Contracts ($5/pt)"
+    elif "RTY" in raw_ticker: 
+        multiplier = 50
+        contract_type = "RTY Contracts ($50/pt)"
+    elif "CL" in raw_ticker: 
+        multiplier = 1000
+        contract_type = "CL Contracts ($1000/pt)"
+    elif "GC" in raw_ticker: 
+        multiplier = 100
+        contract_type = "GC Contracts ($100/pt)"
+    else:
+        contract_type = "Shares (1:1 Ratio)"
+    
+    trades = []
+    ledger = []
+    contracts_held = 0
+    total_cost = 0
+    
+    rr_ratio = 2.0
+    active_fvg = None
+    fvg_entry = 0.0
+    fvg_sl = 0.0
+    fvg_tp = 0.0
+    
+    log(f"\n--- Executed Trades ({contract_type}) | Mode: ICT Silver Bullet ---")
+    
+    for i in range(4, len(df)):
+        current_date = df.index[i]
+        c_open, c_high, c_low, c_close = df['Open'].iloc[i], df['High'].iloc[i], df['Low'].iloc[i], df['Close'].iloc[i]
+        
+        # Check Silver Bullet Window (10-11 AM EST)
+        hour = current_date.hour
+        is_sb_window = (hour == 10)
+        
+        if not is_sb_window and contracts_held == 0:
+            active_fvg = None # Reset pending outside window
+            
+        if contracts_held != 0:
+            # Manage Open Position
+            if active_fvg == 'bullish':
+                if c_low <= fvg_sl:
+                    loss = fvg_entry - fvg_sl
+                    log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] SELL (Stop Loss) 1 Contract @ {fvg_sl:.2f} | P/L: {-loss:+.2f} pts")
+                    contracts_held = 0
+                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "SELL (SL)", "Contracts": 0, "Price": round(fvg_sl, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(-loss, 2), "P/L USD": round(-loss*multiplier, 2), "Reason": "SL Hit"})
+                    trades.append({"Profit %": (-loss/fvg_entry)*100, "Points": -loss, "Dollars": -loss*multiplier})
+                    active_fvg = None
+                elif c_high >= fvg_tp:
+                    profit = fvg_tp - fvg_entry
+                    log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] SELL (Take Profit) 1 Contract @ {fvg_tp:.2f} | P/L: {profit:+.2f} pts")
+                    contracts_held = 0
+                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "SELL (TP)", "Contracts": 0, "Price": round(fvg_tp, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(profit, 2), "P/L USD": round(profit*multiplier, 2), "Reason": "TP Hit"})
+                    trades.append({"Profit %": (profit/fvg_entry)*100, "Points": profit, "Dollars": profit*multiplier})
+                    active_fvg = None
+            elif active_fvg == 'bearish':
+                if c_high >= fvg_sl:
+                    loss = fvg_sl - fvg_entry
+                    log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] BUY TO COVER (Stop Loss) 1 Contract @ {fvg_sl:.2f} | P/L: {-loss:+.2f} pts")
+                    contracts_held = 0
+                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "BUY COVER (SL)", "Contracts": 0, "Price": round(fvg_sl, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(-loss, 2), "P/L USD": round(-loss*multiplier, 2), "Reason": "SL Hit"})
+                    trades.append({"Profit %": (-loss/fvg_entry)*100, "Points": -loss, "Dollars": -loss*multiplier})
+                    active_fvg = None
+                elif c_low <= fvg_tp:
+                    profit = fvg_entry - fvg_tp
+                    log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] BUY TO COVER (Take Profit) 1 Contract @ {fvg_tp:.2f} | P/L: {profit:+.2f} pts")
+                    contracts_held = 0
+                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "BUY COVER (TP)", "Contracts": 0, "Price": round(fvg_tp, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(profit, 2), "P/L USD": round(profit*multiplier, 2), "Reason": "TP Hit"})
+                    trades.append({"Profit %": (profit/fvg_entry)*100, "Points": profit, "Dollars": profit*multiplier})
+                    active_fvg = None
+            continue
+            
+        if is_sb_window and contracts_held == 0:
+            c1_h, c1_l = df['High'].iloc[i-3], df['Low'].iloc[i-3]
+            c3_h, c3_l = df['High'].iloc[i-1], df['Low'].iloc[i-1]
+            
+            if c1_h < c3_l and active_fvg is None:
+                active_fvg = 'bullish_pending'
+                fvg_entry = c3_l
+                fvg_sl = c1_l
+                fvg_tp = fvg_entry + ((fvg_entry - fvg_sl) * rr_ratio)
+            elif c1_l > c3_h and active_fvg is None:
+                active_fvg = 'bearish_pending'
+                fvg_entry = c3_h
+                fvg_sl = c1_h
+                fvg_tp = fvg_entry - ((fvg_sl - fvg_entry) * rr_ratio)
+                
+            if active_fvg == 'bullish_pending' and c_low <= fvg_entry:
+                contracts_held = 1
+                active_fvg = 'bullish'
+                log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] BUY 1 Contract @ {fvg_entry:.2f}")
+                ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "BUY", "Contracts": 1, "Price": round(fvg_entry, 2), "Total Held": 1, "Avg Entry": "", "P/L Pts": "", "P/L USD": "", "Reason": ""})
+            elif active_fvg == 'bearish_pending' and c_high >= fvg_entry:
+                contracts_held = -1
+                active_fvg = 'bearish'
+                log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] SELL SHORT 1 Contract @ {fvg_entry:.2f}")
+                ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "SELL SHORT", "Contracts": -1, "Price": round(fvg_entry, 2), "Total Held": -1, "Avg Entry": "", "P/L Pts": "", "P/L USD": "", "Reason": ""})
+
+    if not trades:
+        log("No trades executed based on criteria.")
+        return "\n".join(output), [], []
+        
+    import numpy as np
+    
+    total_trades = len(trades)
+    winning_trades = [t for t in trades if t["Dollars"] > 0]
+    losing_trades = [t for t in trades if t["Dollars"] <= 0]
+    
+    num_wins = len(winning_trades)
+    num_losses = len(losing_trades)
+    win_rate = (num_wins / total_trades) * 100 if total_trades > 0 else 0
+    
+    gross_profit = sum(t["Dollars"] for t in winning_trades)
+    gross_loss = abs(sum(t["Dollars"] for t in losing_trades))
+    profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (99.99 if gross_profit > 0 else 0.0)
+    
+    avg_win = (gross_profit / num_wins) if num_wins > 0 else 0.0
+    avg_loss = (gross_loss / num_losses) if num_losses > 0 else 0.0
+    
+    total_dollars = sum(t["Dollars"] for t in trades)
+    avg_trade_pl = total_dollars / total_trades if total_trades > 0 else 0.0
+    
+    trade_profits = [t["Dollars"] for t in trades]
+    if len(trade_profits) > 1 and np.std(trade_profits) > 0:
+        sharpe_ratio = np.mean(trade_profits) / np.std(trade_profits)
+    else:
+        sharpe_ratio = 0.0
+        
+    expectancy = (win_rate / 100 * avg_win) - ((1 - win_rate / 100) * avg_loss)
+    
+    total_return_pct = sum(t["Profit %"] for t in trades)
+    total_points = sum(t["Points"] for t in trades)
+    
+    max_consec_loss = 0
+    current_consec = 0
+    equity = 0
+    peak_equity = 0
+    max_dd = 0
+    
+    for t in trades:
+        equity += t["Dollars"]
+        if equity > peak_equity:
+            peak_equity = equity
+        dd = peak_equity - equity
+        if dd > max_dd:
+            max_dd = dd
+            
+        if t["Dollars"] < 0:
+            current_consec += 1
+            if current_consec > max_consec_loss:
+                max_consec_loss = current_consec
+        else:
+            current_consec = 0
+    
+    log(f"\n--- Final Results ({start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}) ---")
+    log(f"Total Trades: {total_trades}")
+    log(f"Win Rate: {win_rate:.2f}%")
+    log(f"Total Dollar Return (1 {raw_ticker} Contract): {total_points:+.2f}")
+    log(f"Max Drawdown: -{max_dd / multiplier:.2f}")
+    log(f"Total Points Captured: {total_points:+.2f} pts")
+    log(f"Cumulative Return (Uncompounded %): {total_return_pct:+.2f}%")
+    log(f"Average Trade P/L: {avg_trade_pl / multiplier:.2f}")
+    log(f"Profit Factor: {profit_factor:.2f}")
+    log(f"Sharpe Ratio (Trade): {sharpe_ratio:.2f}")
+    log(f"Expectancy: {expectancy / multiplier:.2f}")
+    log(f"Max Consecutive Losses: {max_consec_loss}")
+    log(f"Average Win: {avg_win / multiplier:.2f}")
+    log(f"Average Loss: -{avg_loss / multiplier:.2f}")
     log("-------------------------------------------------")
     
     return "\n".join(output), trades, ledger
@@ -430,8 +748,8 @@ def main():
             import pandas as pd
             from datetime import datetime
             
-            report_path = "backtest_report.txt"
-            csv_path = f"backtest_trades_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            report_path = os.path.join("results", "backtest_report.txt")
+            csv_path = os.path.join("results", f"backtest_trades_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
             
             with open(report_path, "w") as f:
                 f.write("Strategy Execution Report\n")

@@ -1,0 +1,8 @@
+Strategy Execution Report
+=========================
+
+Using pre-loaded chart data from UI for backtest...
+
+--- Executed Trades (NQ Contracts ($20/pt)) | Mode: ICT Silver Bullet ---
+[2026-05-15 10:00] SELL SHORT 1 Contract @ 29288.00
+No trades executed based on criteria.

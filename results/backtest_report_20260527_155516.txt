@@ -1,0 +1,274 @@
+Strategy Execution Report
+=========================
+
+Loading futures data from CSV: C:/Users/alanj/Downloads/CME_MINI_MNQ1!, 1D_4d9c5.csv
+Loaded 603 rows from CSV (2024-01-01 to 2026-05-26)
+Resampled 603 x 1-min bars -> 603 x 1 day bars.
+
+--- Executed Trades (MNQ Contracts ($2/pt)) | Mode: Average Down ---
+[2024-01-03] BUY 1 Contract @ 16542.25 (Total Held: 1)
+[2024-01-04] BUY 1 Contract @ 16450.50 (Total Held: 2)
+[2024-01-08] IBS Exit: SELL ALL 2 Contracts @ 16788.00 | Avg Entry: 16496.38 | P/L: +583.25 pts ($+1166.50)
+
+[2024-01-22] BUY 1 Contract @ 17455.50 (Total Held: 1)
+[2024-01-23] IBS Exit: SELL ALL 1 Contracts @ 17551.00 | Avg Entry: 17455.50 | P/L: +95.50 pts ($+191.00)
+
+[2024-01-25] BUY 1 Contract @ 17578.25 (Total Held: 1)
+[2024-01-29] IBS Exit: SELL ALL 1 Contracts @ 17699.25 | Avg Entry: 17578.25 | P/L: +121.00 pts ($+242.00)
+
+[2024-01-30] BUY 1 Contract @ 17469.00 (Total Held: 1)
+[2024-01-31] BUY 1 Contract @ 17264.50 (Total Held: 2)
+[2024-02-01] IBS Exit: SELL ALL 2 Contracts @ 17628.50 | Avg Entry: 17366.75 | P/L: +523.50 pts ($+1047.00)
+
+[2024-02-12] BUY 1 Contract @ 17929.75 (Total Held: 1)
+[2024-02-14] IBS Exit: SELL ALL 1 Contracts @ 17874.50 | Avg Entry: 17929.75 | P/L: -55.25 pts ($-110.50)
+
+[2024-02-16] BUY 1 Contract @ 17721.25 (Total Held: 1)
+[2024-02-21] IBS Exit: SELL ALL 1 Contracts @ 17710.00 | Avg Entry: 17721.25 | P/L: -11.25 pts ($-22.50)
+
+[2024-02-23] BUY 1 Contract @ 17961.00 (Total Held: 1)
+[2024-02-26] BUY 1 Contract @ 17949.25 (Total Held: 2)
+[2024-02-28] BUY 1 Contract @ 17860.50 (Total Held: 3)
+[2024-03-04] BUY 1 Contract @ 18244.75 (Total Held: 4)
+[2024-03-08] BUY 1 Contract @ 18055.25 (Total Held: 5)
+[2024-03-12] IBS Exit: SELL ALL 5 Contracts @ 18471.50 | Avg Entry: 18014.15 | P/L: +2286.75 pts ($+4573.50)
+
+[2024-03-15] BUY 1 Contract @ 18063.50 (Total Held: 1)
+[2024-03-19] IBS Exit: SELL ALL 1 Contracts @ 18273.50 | Avg Entry: 18063.50 | P/L: +210.00 pts ($+420.00)
+
+[2024-03-26] BUY 1 Contract @ 18479.75 (Total Held: 1)
+[2024-03-28] BUY 1 Contract @ 18465.25 (Total Held: 2)
+[2024-04-04] BUY 1 Contract @ 18073.00 (Total Held: 3)
+[2024-04-09] IBS Exit: SELL ALL 3 Contracts @ 18383.75 | Avg Entry: 18339.33 | P/L: +133.25 pts ($+266.50)
+
+[2024-04-12] BUY 1 Contract @ 18171.50 (Total Held: 1)
+[2024-04-15] BUY 1 Contract @ 17875.00 (Total Held: 2)
+[2024-04-17] BUY 1 Contract @ 17663.50 (Total Held: 3)
+[2024-04-18] BUY 1 Contract @ 17530.00 (Total Held: 4)
+[2024-04-19] BUY 1 Contract @ 17180.00 (Total Held: 5)
+[2024-04-23] IBS Exit: SELL ALL 5 Contracts @ 17659.50 | Avg Entry: 17684.00 | P/L: -122.50 pts ($-245.00)
+
+[2024-04-24] BUY 1 Contract @ 17508.50 (Total Held: 1)
+[2024-04-25] IBS Exit: SELL ALL 1 Contracts @ 17818.00 | Avg Entry: 17508.50 | P/L: +309.50 pts ($+619.00)
+
+[2024-04-30] BUY 1 Contract @ 17507.50 (Total Held: 1)
+[2024-05-01] BUY 1 Contract @ 17473.50 (Total Held: 2)
+[2024-05-02] IBS Exit: SELL ALL 2 Contracts @ 17744.25 | Avg Entry: 17490.50 | P/L: +507.50 pts ($+1015.00)
+
+[2024-05-16] BUY 1 Contract @ 18638.75 (Total Held: 1)
+[2024-05-21] IBS Exit: SELL ALL 1 Contracts @ 18799.75 | Avg Entry: 18638.75 | P/L: +161.00 pts ($+322.00)
+
+[2024-05-23] BUY 1 Contract @ 18686.00 (Total Held: 1)
+[2024-05-29] BUY 1 Contract @ 18746.75 (Total Held: 2)
+[2024-05-30] BUY 1 Contract @ 18593.75 (Total Held: 3)
+[2024-06-05] IBS Exit: SELL ALL 3 Contracts @ 19088.00 | Avg Entry: 18675.50 | P/L: +1237.50 pts ($+2475.00)
+
+[2024-06-20] BUY 1 Contract @ 20053.25 (Total Held: 1)
+[2024-06-24] BUY 1 Contract @ 19753.25 (Total Held: 2)
+[2024-06-25] IBS Exit: SELL ALL 2 Contracts @ 19970.00 | Avg Entry: 19903.25 | P/L: +133.50 pts ($+267.00)
+
+[2024-06-28] BUY 1 Contract @ 19967.00 (Total Held: 1)
+[2024-07-01] IBS Exit: SELL ALL 1 Contracts @ 20042.50 | Avg Entry: 19967.00 | P/L: +75.50 pts ($+151.00)
+
+[2024-07-11] BUY 1 Contract @ 20433.50 (Total Held: 1)
+[2024-07-17] BUY 1 Contract @ 20017.00 (Total Held: 2)
+[2024-07-19] BUY 1 Contract @ 19701.50 (Total Held: 3)
+[2024-07-24] BUY 1 Contract @ 19269.75 (Total Held: 4)
+[2024-07-25] BUY 1 Contract @ 18994.75 (Total Held: 5)
+[2024-07-30] BUY 1 Contract @ 18862.00 (Total Held: 6)
+[2024-07-31] IBS Exit: SELL ALL 6 Contracts @ 19582.75 | Avg Entry: 19546.42 | P/L: +218.00 pts ($+436.00)
+
+[2024-08-01] BUY 1 Contract @ 18964.75 (Total Held: 1)
+[2024-08-02] BUY 1 Contract @ 18509.75 (Total Held: 2)
+[2024-08-07] BUY 1 Contract @ 17857.75 (Total Held: 3)
+[2024-08-08] IBS Exit: SELL ALL 3 Contracts @ 18557.50 | Avg Entry: 18444.08 | P/L: +340.25 pts ($+680.50)
+
+[2024-08-22] BUY 1 Contract @ 19612.00 (Total Held: 1)
+[2024-08-26] BUY 1 Contract @ 19549.75 (Total Held: 2)
+[2024-08-28] BUY 1 Contract @ 19314.00 (Total Held: 3)
+[2024-09-03] BUY 1 Contract @ 18995.50 (Total Held: 4)
+[2024-09-06] BUY 1 Contract @ 18377.50 (Total Held: 5)
+[2024-09-09] IBS Exit: SELL ALL 5 Contracts @ 18724.25 | Avg Entry: 19169.75 | P/L: -2227.50 pts ($-4455.00)
+
+[2024-09-18] BUY 1 Contract @ 19633.25 (Total Held: 1)
+[2024-09-24] IBS Exit: SELL ALL 1 Contracts @ 20185.50 | Avg Entry: 19633.25 | P/L: +552.25 pts ($+1104.50)
+
+[2024-09-27] BUY 1 Contract @ 20194.00 (Total Held: 1)
+[2024-10-02] IBS Exit: SELL ALL 1 Contracts @ 20059.25 | Avg Entry: 20194.00 | P/L: -134.75 pts ($-269.50)
+
+[2024-10-07] BUY 1 Contract @ 20019.00 (Total Held: 1)
+[2024-10-08] IBS Exit: SELL ALL 1 Contracts @ 20286.00 | Avg Entry: 20019.00 | P/L: +267.00 pts ($+534.00)
+
+[2024-10-15] BUY 1 Contract @ 20334.75 (Total Held: 1)
+[2024-10-21] IBS Exit: SELL ALL 1 Contracts @ 20538.75 | Avg Entry: 20334.75 | P/L: +204.00 pts ($+408.00)
+
+[2024-10-28] BUY 1 Contract @ 20507.25 (Total Held: 1)
+[2024-10-30] BUY 1 Contract @ 20505.50 (Total Held: 2)
+[2024-10-31] BUY 1 Contract @ 20036.00 (Total Held: 3)
+[2024-11-05] IBS Exit: SELL ALL 3 Contracts @ 20366.00 | Avg Entry: 20349.58 | P/L: +49.25 pts ($+98.50)
+
+[2024-11-14] BUY 1 Contract @ 20981.75 (Total Held: 1)
+[2024-11-15] BUY 1 Contract @ 20503.75 (Total Held: 2)
+[2024-11-19] IBS Exit: SELL ALL 2 Contracts @ 20754.75 | Avg Entry: 20742.75 | P/L: +24.00 pts ($+48.00)
+
+[2024-12-05] BUY 1 Contract @ 21453.00 (Total Held: 1)
+[2024-12-09] BUY 1 Contract @ 21473.00 (Total Held: 2)
+[2024-12-12] BUY 1 Contract @ 21631.75 (Total Held: 3)
+[2024-12-16] IBS Exit: SELL ALL 3 Contracts @ 22111.00 | Avg Entry: 21519.25 | P/L: +1775.25 pts ($+3550.50)
+
+[2024-12-18] BUY 1 Contract @ 21459.50 (Total Held: 1)
+[2024-12-19] BUY 1 Contract @ 21408.50 (Total Held: 2)
+[2024-12-23] IBS Exit: SELL ALL 2 Contracts @ 21738.75 | Avg Entry: 21434.00 | P/L: +609.50 pts ($+1219.00)
+
+[2024-12-31] BUY 1 Contract @ 21235.00 (Total Held: 1)
+[2025-01-07] BUY 1 Contract @ 21375.25 (Total Held: 2)
+[2025-01-13] IBS Exit: SELL ALL 2 Contracts @ 20992.50 | Avg Entry: 21305.12 | P/L: -625.25 pts ($-1250.50)
+
+[2025-01-16] BUY 1 Contract @ 21214.00 (Total Held: 1)
+[2025-01-21] IBS Exit: SELL ALL 1 Contracts @ 21773.25 | Avg Entry: 21214.00 | P/L: +559.25 pts ($+1118.50)
+
+[2025-01-31] BUY 1 Contract @ 21571.25 (Total Held: 1)
+[2025-02-03] IBS Exit: SELL ALL 1 Contracts @ 21554.25 | Avg Entry: 21571.25 | P/L: -17.00 pts ($-34.00)
+
+[2025-02-07] BUY 1 Contract @ 21575.50 (Total Held: 1)
+[2025-02-10] IBS Exit: SELL ALL 1 Contracts @ 21837.00 | Avg Entry: 21575.50 | P/L: +261.50 pts ($+523.00)
+
+[2025-02-21] BUY 1 Contract @ 21659.50 (Total Held: 1)
+[2025-02-24] BUY 1 Contract @ 21427.00 (Total Held: 2)
+[2025-02-27] BUY 1 Contract @ 20633.25 (Total Held: 3)
+[2025-02-28] IBS Exit: SELL ALL 3 Contracts @ 20910.00 | Avg Entry: 21239.92 | P/L: -989.75 pts ($-1979.50)
+
+[2025-03-10] BUY 1 Contract @ 19472.00 (Total Held: 1)
+[2025-03-18] BUY 1 Contract @ 19703.00 (Total Held: 2)
+[2025-03-21] IBS Exit: SELL ALL 2 Contracts @ 19971.00 | Avg Entry: 19587.50 | P/L: +767.00 pts ($+1534.00)
+
+[2025-03-26] BUY 1 Contract @ 20090.50 (Total Held: 1)
+[2025-03-27] BUY 1 Contract @ 19997.25 (Total Held: 2)
+[2025-03-28] BUY 1 Contract @ 19362.25 (Total Held: 3)
+[2025-04-01] IBS Exit: SELL ALL 3 Contracts @ 19597.50 | Avg Entry: 19816.67 | P/L: -657.50 pts ($-1315.00)
+
+[2025-04-02] BUY 1 Contract @ 19137.00 (Total Held: 1)
+[2025-04-03] BUY 1 Contract @ 18648.50 (Total Held: 2)
+[2025-04-04] BUY 1 Contract @ 17486.25 (Total Held: 3)
+[2025-04-08] BUY 1 Contract @ 17232.50 (Total Held: 4)
+[2025-04-09] IBS Exit: SELL ALL 4 Contracts @ 19351.00 | Avg Entry: 18126.06 | P/L: +4899.75 pts ($+9799.50)
+
+[2025-05-01] BUY 1 Contract @ 19797.00 (Total Held: 1)
+[2025-05-12] IBS Exit: SELL ALL 1 Contracts @ 20958.00 | Avg Entry: 19797.00 | P/L: +1161.00 pts ($+2322.00)
+
+[2025-05-21] BUY 1 Contract @ 21145.25 (Total Held: 1)
+[2025-05-27] IBS Exit: SELL ALL 1 Contracts @ 21477.50 | Avg Entry: 21145.25 | P/L: +332.25 pts ($+664.50)
+
+[2025-05-29] BUY 1 Contract @ 21384.50 (Total Held: 1)
+[2025-06-02] IBS Exit: SELL ALL 1 Contracts @ 21554.75 | Avg Entry: 21384.50 | P/L: +170.25 pts ($+340.50)
+
+[2025-06-05] BUY 1 Contract @ 21513.50 (Total Held: 1)
+[2025-06-16] IBS Exit: SELL ALL 1 Contracts @ 22163.25 | Avg Entry: 21513.50 | P/L: +649.75 pts ($+1299.50)
+
+[2025-06-17] BUY 1 Contract @ 21953.25 (Total Held: 1)
+[2025-06-23] IBS Exit: SELL ALL 1 Contracts @ 22072.00 | Avg Entry: 21953.25 | P/L: +118.75 pts ($+237.50)
+
+[2025-07-15] BUY 1 Contract @ 23018.00 (Total Held: 1)
+[2025-07-17] IBS Exit: SELL ALL 1 Contracts @ 23265.50 | Avg Entry: 23018.00 | P/L: +247.50 pts ($+495.00)
+
+[2025-07-29] BUY 1 Contract @ 23451.50 (Total Held: 1)
+[2025-07-30] IBS Exit: SELL ALL 1 Contracts @ 23662.25 | Avg Entry: 23451.50 | P/L: +210.75 pts ($+421.50)
+
+[2025-07-31] BUY 1 Contract @ 23329.25 (Total Held: 1)
+[2025-08-01] BUY 1 Contract @ 22869.00 (Total Held: 2)
+[2025-08-04] IBS Exit: SELL ALL 2 Contracts @ 23351.50 | Avg Entry: 23099.12 | P/L: +504.75 pts ($+1009.50)
+
+[2025-08-05] BUY 1 Contract @ 23090.75 (Total Held: 1)
+[2025-08-06] IBS Exit: SELL ALL 1 Contracts @ 23413.00 | Avg Entry: 23090.75 | P/L: +322.25 pts ($+644.50)
+
+[2025-08-11] BUY 1 Contract @ 23630.00 (Total Held: 1)
+[2025-08-12] IBS Exit: SELL ALL 1 Contracts @ 23948.75 | Avg Entry: 23630.00 | P/L: +318.75 pts ($+637.50)
+
+[2025-08-13] BUY 1 Contract @ 23927.75 (Total Held: 1)
+[2025-08-19] BUY 1 Contract @ 23473.25 (Total Held: 2)
+[2025-08-22] IBS Exit: SELL ALL 2 Contracts @ 23582.75 | Avg Entry: 23700.50 | P/L: -235.50 pts ($-471.00)
+
+[2025-08-29] BUY 1 Contract @ 23454.50 (Total Held: 1)
+[2025-09-04] IBS Exit: SELL ALL 1 Contracts @ 23683.75 | Avg Entry: 23454.50 | P/L: +229.25 pts ($+458.50)
+
+[2025-09-16] BUY 1 Contract @ 24531.00 (Total Held: 1)
+[2025-09-19] IBS Exit: SELL ALL 1 Contracts @ 24861.25 | Avg Entry: 24531.00 | P/L: +330.25 pts ($+660.50)
+
+[2025-09-23] BUY 1 Contract @ 24834.25 (Total Held: 1)
+[2025-09-26] IBS Exit: SELL ALL 1 Contracts @ 24727.50 | Avg Entry: 24834.25 | P/L: -106.75 pts ($-213.50)
+
+[2025-10-03] BUY 1 Contract @ 24981.50 (Total Held: 1)
+[2025-10-08] IBS Exit: SELL ALL 1 Contracts @ 25354.50 | Avg Entry: 24981.50 | P/L: +373.00 pts ($+746.00)
+
+[2025-10-10] BUY 1 Contract @ 24188.25 (Total Held: 1)
+[2025-10-13] IBS Exit: SELL ALL 1 Contracts @ 24905.00 | Avg Entry: 24188.25 | P/L: +716.75 pts ($+1433.50)
+
+[2025-11-04] BUY 1 Contract @ 25575.50 (Total Held: 1)
+[2025-11-06] BUY 1 Contract @ 25310.50 (Total Held: 2)
+[2025-11-10] IBS Exit: SELL ALL 2 Contracts @ 25721.00 | Avg Entry: 25443.00 | P/L: +556.00 pts ($+1112.00)
+
+[2025-11-13] BUY 1 Contract @ 25088.00 (Total Held: 1)
+[2025-11-19] IBS Exit: SELL ALL 1 Contracts @ 24959.75 | Avg Entry: 25088.00 | P/L: -128.25 pts ($-256.50)
+
+[2025-11-20] BUY 1 Contract @ 24278.50 (Total Held: 1)
+[2025-11-24] IBS Exit: SELL ALL 1 Contracts @ 24962.50 | Avg Entry: 24278.50 | P/L: +684.00 pts ($+1368.00)
+
+[2025-12-12] BUY 1 Contract @ 25203.00 (Total Held: 1)
+[2025-12-15] BUY 1 Contract @ 25102.50 (Total Held: 2)
+[2025-12-17] BUY 1 Contract @ 24951.75 (Total Held: 3)
+[2025-12-19] IBS Exit: SELL ALL 3 Contracts @ 25598.25 | Avg Entry: 25085.75 | P/L: +1537.50 pts ($+3075.00)
+
+[2025-12-26] BUY 1 Contract @ 25857.00 (Total Held: 1)
+[2025-12-30] BUY 1 Contract @ 25676.50 (Total Held: 2)
+[2025-12-31] BUY 1 Contract @ 25434.50 (Total Held: 3)
+[2026-01-06] IBS Exit: SELL ALL 3 Contracts @ 25831.25 | Avg Entry: 25656.00 | P/L: +525.75 pts ($+1051.50)
+
+[2026-01-20] BUY 1 Contract @ 25143.25 (Total Held: 1)
+[2026-01-27] IBS Exit: SELL ALL 1 Contracts @ 26109.50 | Avg Entry: 25143.25 | P/L: +966.25 pts ($+1932.50)
+
+[2026-01-30] BUY 1 Contract @ 25638.75 (Total Held: 1)
+[2026-02-02] IBS Exit: SELL ALL 1 Contracts @ 25873.00 | Avg Entry: 25638.75 | P/L: +234.25 pts ($+468.50)
+
+[2026-02-05] BUY 1 Contract @ 24425.75 (Total Held: 1)
+[2026-02-06] IBS Exit: SELL ALL 1 Contracts @ 25107.75 | Avg Entry: 24425.75 | P/L: +682.00 pts ($+1364.00)
+
+[2026-02-12] BUY 1 Contract @ 24822.00 (Total Held: 1)
+[2026-02-25] IBS Exit: SELL ALL 1 Contracts @ 25460.75 | Avg Entry: 24822.00 | P/L: +638.75 pts ($+1277.50)
+
+[2026-03-06] BUY 1 Contract @ 24660.75 (Total Held: 1)
+[2026-03-09] IBS Exit: SELL ALL 1 Contracts @ 24958.25 | Avg Entry: 24660.75 | P/L: +297.50 pts ($+595.00)
+
+[2026-03-12] BUY 1 Contract @ 24567.25 (Total Held: 1)
+[2026-03-13] BUY 1 Contract @ 24335.25 (Total Held: 2)
+[2026-03-18] BUY 1 Contract @ 24606.25 (Total Held: 3)
+[2026-03-26] BUY 1 Contract @ 23821.25 (Total Held: 4)
+[2026-03-27] BUY 1 Contract @ 23255.00 (Total Held: 5)
+[2026-03-30] BUY 1 Contract @ 23106.00 (Total Held: 6)
+[2026-03-31] IBS Exit: SELL ALL 6 Contracts @ 23904.75 | Avg Entry: 23948.50 | P/L: -262.50 pts ($-525.00)
+
+[2026-04-03] BUY 1 Contract @ 24132.25 (Total Held: 1)
+[2026-04-07] IBS Exit: SELL ALL 1 Contracts @ 24397.75 | Avg Entry: 24132.25 | P/L: +265.50 pts ($+531.00)
+
+[2026-04-29] BUY 1 Contract @ 27150.50 (Total Held: 1)
+[2026-04-30] IBS Exit: SELL ALL 1 Contracts @ 27597.25 | Avg Entry: 27150.50 | P/L: +446.75 pts ($+893.50)
+
+[2026-05-07] BUY 1 Contract @ 28643.00 (Total Held: 1)
+[2026-05-08] IBS Exit: SELL ALL 1 Contracts @ 29335.50 | Avg Entry: 28643.00 | P/L: +692.50 pts ($+1385.00)
+
+[2026-05-15] BUY 1 Contract @ 29172.75 (Total Held: 1)
+
+--- Final Results (2024-01-01 to 2026-05-26) ---
+Total Trades: 65
+Win Rate: 80.00%
+Total Dollar Return (1 MNQ Contract): $+49086.00
+Max Drawdown: -$4455.00
+Total Points Captured: +24543.00 pts
+Cumulative Return (Uncompounded %): +76.47%
+Average Trade P/L: $755.17
+Profit Factor: 5.40
+Sharpe Ratio (Trade): 0.46
+Expectancy: $755.17
+Max Consecutive Losses: 2
+Average Win: $1158.34
+Average Loss: -$857.50
+-------------------------------------------------

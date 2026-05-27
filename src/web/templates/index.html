@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Algo Trader | Premium Dashboard</title>
+    <title>IBS Bot | Premium Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=7">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8">
 </head>
 <body>
 
@@ -19,7 +19,7 @@
 
     <div class="container">
         <header class="glass-panel">
-            <h1><span class="gradient-text">Antigravity</span> Algorithmic Trader</h1>
+            <h1><span class="gradient-text">IBS Bot</span> Trading Engine</h1>
             <p>Advanced Quantitative Execution Dashboard</p>
         </header>
 
@@ -33,24 +33,22 @@
             <div class="grid-layout">
                 <!-- Settings Panel: IBS -->
                 <div class="glass-panel settings-panel" id="ibs-strat-panel">
-                    <h2>Configuration</h2>
-                    
-                    <div class="form-group">
-                        <label>Execution Mode</label>
-                        <div class="toggle-group" id="mode-toggle">
-                            <button class="toggle-btn active" data-value="backtest">Backtest</button>
-                            <button class="toggle-btn" data-value="optimize">Optimizer</button>
-                            <button class="toggle-btn live-btn" data-value="live">Live Trade</button>
+                    <h2>IBS Configuration</h2>
+                    <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+                        <div style="flex: 0 0 120px;">
+                            <label>Mode</label>
+                            <div class="toggle-group" id="mode-toggle" style="flex-direction: column;">
+                                <button class="toggle-btn active" data-value="backtest">Backtest</button>
+                                <button class="toggle-btn" data-value="optimize">Optimizer</button>
+                                <button class="toggle-btn live-btn" data-value="live">Live Trade</button>
+                            </div>
+                            <input type="hidden" id="mode" value="{{ state.get('mode', 'backtest') }}">
                         </div>
-                        <input type="hidden" id="mode" value="{{ state.get('mode', 'backtest') }}">
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Ticker Symbol</label>
+                        <div style="flex: 1; min-width: 120px;">
+                            <label>Ticker</label>
                             <input type="text" id="ticker" value="{{ state.get('ticker', 'NQ') }}" class="glass-input">
                         </div>
-                        <div class="form-group">
+                        <div style="flex: 1; min-width: 120px;">
                             <label>Timeframe</label>
                             <select id="timeframe" class="glass-input">
                                 <option value="1 min" {% if state.get('timeframe') == '1 min' %}selected{% endif %}>1 Minute</option>
@@ -61,105 +59,142 @@
                                 <option value="1 day" {% if state.get('timeframe') == '1 day' or not state.get('timeframe') %}selected{% endif %}>1 Day</option>
                             </select>
                         </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Strategy</label>
-                        <select id="strategy" class="glass-input">
-                            <option value="IBS Strategy (Average Down)" {% if state.get('strategy') == 'IBS Strategy (Average Down)' %}selected{% endif %}>IBS Strategy (Average Down)</option>
-                            <option value="IBS Strategy (Single Entry)" {% if state.get('strategy') == 'IBS Strategy (Single Entry)' %}selected{% endif %}>IBS Strategy (Single Entry)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
+                        <div style="flex: 1; min-width: 160px;">
+                            <label>Strategy</label>
+                            <select id="strategy" class="glass-input">
+                                <option value="IBS Strategy (Average Down)" {% if state.get('strategy') == 'IBS Strategy (Average Down)' %}selected{% endif %}>IBS Strategy (Average Down)</option>
+                                <option value="IBS Strategy (Single Entry)" {% if state.get('strategy') == 'IBS Strategy (Single Entry)' %}selected{% endif %}>IBS Strategy (Single Entry)</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1; min-width: 130px;">
                             <label>Start Date</label>
                             <input type="date" id="start_date" value="{{ state.get('start_date', '2021-01-01') }}" class="glass-input">
                         </div>
-                        <div class="form-group">
+                        <div style="flex: 1; min-width: 130px;">
                             <label>End Date</label>
                             <input type="date" id="end_date" value="{{ state.get('end_date', '2026-01-01') }}" class="glass-input">
                         </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Local CSV Path (For Backtesting Futures)</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="text" id="csv_path" value="{{ state.get('csv_path', '') }}" placeholder="C:/path/to/data.csv" class="glass-input" style="flex: 1;">
-                            <button class="glass-btn" id="browse-btn" type="button">Browse</button>
+                        <div style="flex: 2; min-width: 220px;">
+                            <label>CSV Path (Futures)</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="csv_path" value="{{ state.get('csv_path', '') }}" placeholder="Optional — for futures backtest" class="glass-input" style="flex:1;">
+                                <button class="glass-btn" id="browse-btn" type="button">Browse</button>
+                            </div>
+                        </div>
+                        <div style="flex: 0 0 auto; display:flex; flex-direction:column; gap:6px; padding-top:1.5rem;">
+                            <label style="display:none;">.</label>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <label class="switch" style="margin:0;">
+                                    <input type="checkbox" id="trend_filter" {% if state.get('trend_filter') %}checked{% endif %}>
+                                    <span class="slider round"></span>
+                                </label>
+                                <span class="checkbox-label" style="font-size:0.8rem;">Bull Filter</span>
+                            </div>
                         </div>
                     </div>
-
-                    <hr class="glass-hr">
-
-                    <h3>IBS Parameters</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Entry Threshold</label>
+                    <!-- IBS Parameters row -->
+                    <div style="display:flex; flex-wrap:wrap; gap:1rem; margin-top:1rem; align-items:flex-end;">
+                        <div style="flex:1; min-width:100px;">
+                            <label>Entry IBS</label>
                             <input type="number" step="0.01" id="entry_ibs" value="{{ state.get('entry_ibs', 0.21) }}" class="glass-input">
                         </div>
-                        <div class="form-group">
-                            <label>Exit Threshold</label>
+                        <div style="flex:1; min-width:100px;">
+                            <label>Exit IBS</label>
                             <input type="number" step="0.01" id="exit_ibs" value="{{ state.get('exit_ibs', 0.87) }}" class="glass-input">
                         </div>
-                    </div>
-
-                    <hr class="glass-hr">
-                    
-                    <h3>Advanced Risk Management</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Max Hold Days (0=Off)</label>
+                        <div style="flex:1; min-width:100px;">
+                            <label>Max Hold Days</label>
                             <input type="number" id="max_hold_days" value="{{ state.get('max_hold_days', 0) }}" class="glass-input">
                         </div>
-                        <div class="form-group">
-                            <label>Max Contracts (0=Off)</label>
+                        <div style="flex:1; min-width:100px;">
+                            <label>Max Contracts</label>
                             <input type="number" id="max_contracts" value="{{ state.get('max_contracts', 0) }}" class="glass-input">
                         </div>
+                        <div style="flex:2; min-width:200px;">
+                            <button class="launch-btn" id="launch-btn" style="margin-top:0;">
+                                <span class="btn-text">INITIALIZE ENGINE</span>
+                                <div class="spinner hidden" id="spinner"></div>
+                            </button>
+                        </div>
+                        <div style="flex:1; min-width:140px;">
+                            <button class="launch-btn hidden" id="stop-btn" style="background: linear-gradient(135deg, #ff4d4d, #b30000); margin-top:0;">
+                                <span class="btn-text">&#128721; STOP ENGINE</span>
+                            </button>
+                        </div>
                     </div>
-
-                    <div class="form-group checkbox-group">
-                        <label class="switch">
-                            <input type="checkbox" id="trend_filter" {% if state.get('trend_filter') %}checked{% endif %}>
-                            <span class="slider round"></span>
-                        </label>
-                        <span class="checkbox-label">Require Price > 200 SMA (Bull Filter)</span>
-                    </div>
-
-                    <button class="launch-btn" id="launch-btn">
-                        <span class="btn-text">INITIALIZE ENGINE</span>
-                        <div class="spinner hidden" id="spinner"></div>
-                    </button>
-                    <button class="launch-btn hidden" id="stop-btn" style="background: linear-gradient(135deg, #ff4d4d, #b30000); margin-top: 10px;">
-                        <span class="btn-text">🛑 STOP ENGINE</span>
-                    </button>
                 </div>
 
                 <!-- Settings Panel: Day Trading -->
-                <div class="glass-panel settings-panel" id="new-strat-panel" style="display: none; width: 100%; grid-column: span 2;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div class="glass-panel settings-panel" id="new-strat-panel" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
                         <h2>Day Trading Chart & Execution</h2>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="text" id="dt-ticker" value="{{ state.get('dt-ticker', 'NQ') }}" class="glass-input" style="width: 100px;">
-                            <select class="glass-input" id="dt-timeframe">
-                                <option value="5 secs" {% if state.get('dt-timeframe') == '5 secs' %}selected{% endif %}>5 Seconds</option>
-                                <option value="10 secs" {% if state.get('dt-timeframe') == '10 secs' %}selected{% endif %}>10 Seconds</option>
-                                <option value="15 secs" {% if state.get('dt-timeframe') == '15 secs' %}selected{% endif %}>15 Seconds</option>
-                                <option value="30 secs" {% if state.get('dt-timeframe') == '30 secs' %}selected{% endif %}>30 Seconds</option>
-                                <option value="1 min" {% if state.get('dt-timeframe') == '1 min' %}selected{% endif %}>1 Minute</option>
-                                <option value="5 mins" {% if state.get('dt-timeframe', '5 mins') == '5 mins' %}selected{% endif %}>5 Minutes</option>
-                                <option value="15 mins" {% if state.get('dt-timeframe') == '15 mins' %}selected{% endif %}>15 Minutes</option>
-                                <option value="1 hour" {% if state.get('dt-timeframe') == '1 hour' %}selected{% endif %}>1 Hour</option>
-                            </select>
-                            <button class="glass-btn" id="load-chart-btn" style="background: var(--accent-1); color: white;">Load Data</button>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            <div>
+                                <label style="font-size:0.75rem; margin-bottom:3px;">Ticker</label>
+                                <input type="text" id="dt-ticker" value="{{ state.get('dt-ticker', 'SPY') }}" class="glass-input" style="width: 80px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.75rem; margin-bottom:3px;">Timeframe</label>
+                                <select class="glass-input" id="dt-timeframe">
+                                    <option value="1 min" {% if state.get('dt-timeframe') == '1 min' %}selected{% endif %}>1 Min</option>
+                                    <option value="5 mins" {% if state.get('dt-timeframe', '5 mins') == '5 mins' %}selected{% endif %}>5 Min</option>
+                                    <option value="15 mins" {% if state.get('dt-timeframe') == '15 mins' %}selected{% endif %}>15 Min</option>
+                                    <option value="1 hour" {% if state.get('dt-timeframe') == '1 hour' %}selected{% endif %}>1 Hour</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:0.75rem; margin-bottom:3px;">Backtest Start</label>
+                                <input type="date" id="dt-start-date" value="{{ state.get('dt-start-date', '2025-01-01') }}" class="glass-input" style="width: 145px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.75rem; margin-bottom:3px;">Backtest End</label>
+                                <input type="date" id="dt-end-date" value="{{ state.get('dt-end-date', '2026-05-17') }}" class="glass-input" style="width: 145px;">
+                            </div>
+                            <div style="padding-top: 18px;">
+                                <button class="glass-btn" id="load-chart-btn" style="background: var(--accent-1); color: white; height: 42px; padding: 0 18px;">Load Data</button>
+                            </div>
                         </div>
                     </div>
                     
                     <!-- Chart Container -->
-                    <div style="position: relative; width: 100%; height: 500px; border-radius: 12px; overflow: hidden; border: 1px solid var(--panel-border);">
+                    <div style="position: relative; width: 100%; height: 500px; border-radius: 12px; overflow: hidden; border: 1px solid var(--panel-border); margin-bottom: 20px;">
                         <div id="tvchart" style="width: 100%; height: 100%; background: rgba(0,0,0,0.5);"></div>
                         <div id="chart-legend" style="position: absolute; top: 12px; left: 16px; z-index: 10; color: #d1d5db; font-size: 14px; font-family: 'Inter', sans-serif; pointer-events: none; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); display: flex; gap: 12px;">
                         </div>
+                    </div>
+                    
+                    <!-- Futures CSV Banner (hidden by default) -->
+                    <div id="futures-csv-banner" style="display:none; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; font-size: 0.9rem; color: #fbbf24;">
+                        <strong>&#9888; Futures Detected</strong> — NQ/ES/YM require a CSV file. Click <strong>Browse CSV</strong> to select your data, then click <strong>Load Data</strong>.
+                    </div>
+
+                    <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="form-group" style="flex: 1; min-width: 160px;">
+                            <label>Strategy</label>
+                            <select id="dt-strategy" class="glass-input">
+                                <option value="ICT Silver Bullet">ICT Silver Bullet</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 2; min-width: 260px;">
+                            <label>CSV Data File <span style="color: var(--text-muted); font-size:0.8rem;">(required for futures)</span></label>
+                            <div style="display:flex; gap: 8px; align-items: center;">
+                                <input type="text" id="dt-csv-path" readonly value="{{ state.get('dt-csv-path', '') }}" placeholder="No file selected — click Browse for futures (NQ, ES...)" class="glass-input" style="flex:1; cursor:default; color: var(--text-muted);">
+                                <button class="glass-btn" id="dt-browse-btn" style="white-space:nowrap; background: rgba(139,92,246,0.25); border-color: rgba(139,92,246,0.5); color: #c4b5fd; padding: 0 16px; height: 42px;">&#128193; Browse</button>
+                                <button class="glass-btn" id="dt-clear-csv-btn" title="Clear CSV" style="height:42px; padding: 0 10px; color: #f87171; background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3);">&#10005;</button>
+                            </div>
+                        </div>
+                        <button class="launch-btn" id="dt-backtest-btn" style="flex: 1; min-width: 130px; height: 42px; margin-bottom: 5px;">
+                            <span class="btn-text">RUN BACKTEST</span>
+                        </button>
+                        <button class="launch-btn" id="dt-live-btn" style="flex: 1; min-width: 130px; height: 42px; margin-bottom: 5px; background: linear-gradient(135deg, #10b981, #059669);">
+                            <span class="btn-text">LAUNCH LIVE TRADER</span>
+                        </button>
+                    </div>
+                    <!-- Reload last result -->
+                    <div style="margin-top: 10px;">
+                        <button id="dt-reload-result-btn" class="glass-btn hidden" style="background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.4); color: #6ee7b7; font-size: 0.85rem; padding: 6px 16px;">
+                            &#8635; Show Last Backtest Result
+                        </button>
                     </div>
                 </div>
 
@@ -174,8 +209,12 @@
                         <span class="btn-text">LOAD LIVE TRADES (DB)</span>
                     </button>
                     
-                    <button class="launch-btn" id="load-db-backtests-btn" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                    <button class="launch-btn" id="load-db-backtests-btn" style="background: linear-gradient(135deg, #3b82f6, #2563eb); margin-bottom: 10px;">
                         <span class="btn-text">LOAD PAST BACKTESTS (DB)</span>
+                    </button>
+                    
+                    <button class="launch-btn" id="load-db-optimizations-btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">
+                        <span class="btn-text">LOAD OPTIMIZER RUNS (DB)</span>
                     </button>
                     
                     <button class="glass-btn" onclick="alert('Export to CSV coming soon!')" style="width: 100%; margin-top: 15px; padding: 15px;">
@@ -240,6 +279,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
-    <script src="{{ url_for('static', filename='main.js') }}?v=24"></script>
+    <script src="{{ url_for('static', filename='ui.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='ibs.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='dt.js') }}?v=1"></script>
 </body>
 </html>

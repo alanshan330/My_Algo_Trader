@@ -247,8 +247,16 @@ def main():
     sma_200 = df['Close'].rolling(200).mean()
 
     # Multiplier
-    mult_map = {"NQ":20,"ES":50,"YM":5,"RTY":50,"CL":1000,"GC":100}
-    multiplier = next((v for k,v in mult_map.items() if k in sym_to_use), 1)
+    mult_map = {
+        "MNQ": 2, "MES": 5, "MYM": 0.5, "M2K": 5,
+        "NQ": 20, "ES": 50, "YM": 5, "RTY": 50,
+        "CL": 1000, "GC": 100
+    }
+    # Check exact match first, then substring
+    if sym_to_use in mult_map:
+        multiplier = mult_map[sym_to_use]
+    else:
+        multiplier = next((v for k,v in mult_map.items() if k in sym_to_use), 1)
 
     is_avg_down = "Average Down" in saved_strategy
 
@@ -302,9 +310,25 @@ def main():
     # Save to file
     from datetime import datetime
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    out_path = os.path.join(os.path.dirname(__file__), "..", f"ibs_optimization_report_{stamp}.csv")
+    out_path = os.path.join(os.path.dirname(__file__), "..", "results", f"ibs_optimization_report_{stamp}.csv")
     results_df.to_csv(out_path, index=False)
     print(f"\n  Full results saved to: {os.path.basename(out_path)}")
+    
+    # Log to Database
+    try:
+        from src.trading import db
+        params_str = f"Entry: {best['entry']:.2f}, Exit: {best['exit']:.2f}"
+        db.log_optimizer_run(
+            strategy=saved_strategy,
+            ticker=sym_to_use,
+            timeframe="1 day",
+            best_params=params_str,
+            best_profit=best['total_usd'],
+            best_win_rate=best['win_rate'],
+            best_drawdown=0.0
+        )
+    except Exception as e:
+        print(f"Failed to log to database: {e}")
     
     # We will let the web UI handle displaying the results
 
