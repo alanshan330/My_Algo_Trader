@@ -198,6 +198,9 @@ def run_pandas_backtest(params):
     strategy_name = params.get("strategy", "IBS Strategy (Average Down)")
     if "Silver Bullet" in strategy_name:
         return run_sb_backtest(df, params, log, output)
+
+    if "Blended" in strategy_name:
+        return run_blended_backtest(df, params, log, output)
         
     # Determine multiplier
     raw_ticker = params["symbol"].upper()
@@ -298,7 +301,8 @@ def run_pandas_backtest(params):
                     "Avg Entry": "",
                     "P/L Pts": "",
                     "P/L USD": "",
-                    "Reason": ""
+                    "Reason": "",
+                    "IBS": round(current_ibs, 4)
                 })
             
         elif contracts_held > 0:
@@ -376,7 +380,8 @@ def run_pandas_backtest(params):
                     "Avg Entry": round(avg_entry_price, 2),
                     "P/L Pts": round(points_gained, 2),
                     "P/L USD": round(dollar_gained, 2),
-                    "Reason": reason
+                    "Reason": reason,
+                    "IBS": round(current_ibs, 4)
                 })
                 log(f"[{current_date.strftime('%Y-%m-%d')}] {reason}: SELL ALL {contracts_held} Contracts @ {exit_price:.2f} | Avg Entry: {avg_entry_price:.2f} | P/L: {points_gained:+.2f} pts (${dollar_gained:+.2f})\n")
                 
@@ -410,7 +415,8 @@ def run_pandas_backtest(params):
                     "Avg Entry": round(avg_entry_price, 2),
                     "P/L Pts": round(points_gained, 2),
                     "P/L USD": round(dollar_gained, 2),
-                    "Reason": "Time Limit"
+                    "Reason": "Time Limit",
+                    "IBS": round(current_ibs, 4)
                 })
                 log(f"[{current_date.strftime('%Y-%m-%d')}] Stale Trade (Time Limit): SELL ALL {contracts_held} Contracts @ {exit_price:.2f} | Avg Entry: {avg_entry_price:.2f} | P/L: {points_gained:+.2f} pts (${dollar_gained:+.2f})\n")
                 
@@ -444,7 +450,8 @@ def run_pandas_backtest(params):
                     "Avg Entry": round(avg_entry_price, 2),
                     "P/L Pts": round(points_gained, 2),
                     "P/L USD": round(dollar_gained, 2),
-                    "Reason": "IBS Exit"
+                    "Reason": "IBS Exit",
+                    "IBS": round(current_ibs, 4)
                 })
                 log(f"[{current_date.strftime('%Y-%m-%d')}] IBS Exit: SELL ALL {contracts_held} Contracts @ {exit_price:.2f} | Avg Entry: {avg_entry_price:.2f} | P/L: {points_gained:+.2f} pts (${dollar_gained:+.2f})\n")
                 
@@ -527,7 +534,204 @@ def run_pandas_backtest(params):
     
     return "\n".join(output), trades, ledger
 
+def run_blended_backtest(df, params, log, output):
+    """
+    Blended Strategy: Two independent IBS legs running in parallel.
+      Leg A — Core:     Entry IBS < 0.32, Exit IBS > 0.90
+      Leg B — Deep Dip: Entry IBS < 0.24, Exit IBS > 0.85
+
+    Each leg is fully independent — its own contract stack and cost basis.
+    Results are merged into a single trade ledger sorted chronologically.
+    """
+    raw_ticker = params["symbol"].upper()
+    multiplier = 1
+    contract_type = "Shares"
+    if raw_ticker == "MNQ":
+        multiplier = 2;  contract_type = "MNQ Contracts ($2/pt)"
+    elif raw_ticker == "MES":
+        multiplier = 5;  contract_type = "MES Contracts ($5/pt)"
+    elif raw_ticker == "MYM":
+        multiplier = 0.5; contract_type = "MYM Contracts ($0.5/pt)"
+    elif raw_ticker == "M2K":
+        multiplier = 5;  contract_type = "M2K Contracts ($5/pt)"
+    elif raw_ticker == "MCL":
+        multiplier = 100; contract_type = "MCL Contracts ($100/pt)"
+    elif raw_ticker == "MGC":
+        multiplier = 10; contract_type = "MGC Contracts ($10/pt)"
+    elif "NQ" in raw_ticker:
+        multiplier = 20; contract_type = "NQ Contracts ($20/pt)"
+    elif "ES" in raw_ticker:
+        multiplier = 50; contract_type = "ES Contracts ($50/pt)"
+    elif "YM" in raw_ticker:
+        multiplier = 5;  contract_type = "YM Contracts ($5/pt)"
+    elif "RTY" in raw_ticker:
+        multiplier = 50; contract_type = "RTY Contracts ($50/pt)"
+    elif "CL" in raw_ticker:
+        multiplier = 1000; contract_type = "CL Contracts ($1000/pt)"
+    elif "GC" in raw_ticker:
+        multiplier = 100; contract_type = "GC Contracts ($100/pt)"
+    else:
+        contract_type = "Shares (1:1 Ratio)"
+
+    # Blend parameters — use user inputs, fall back to optimised defaults
+    CORE_ENTRY     = params.get('entry_threshold',   0.32)
+    CORE_EXIT      = params.get('exit_threshold',    0.90)
+    DEEP_DIP_ENTRY = params.get('entry_threshold_b', 0.24)
+    DEEP_DIP_EXIT  = params.get('exit_threshold_b',  0.85)
+    if DEEP_DIP_ENTRY is None: DEEP_DIP_ENTRY = 0.24
+    if DEEP_DIP_EXIT  is None: DEEP_DIP_EXIT  = 0.85
+
+    start_date = df.index[0]
+    end_date   = df.index[-1]
+
+    log(f"\n--- IBS Blended Strategy | {contract_type} ---")
+    log(f"    Leg A  [Core]     — Entry IBS < {CORE_ENTRY} | Exit IBS > {CORE_EXIT}")
+    log(f"    Leg B  [Deep Dip] — Entry IBS < {DEEP_DIP_ENTRY} | Exit IBS > {DEEP_DIP_EXIT}")
+    log(f"    Each leg is independent. Deep Dip only fires on more extreme pullbacks.")
+    log("")
+
+    ibs   = (df['Close'] - df['Low']) / (df['High'] - df['Low'])
+    close = df['Close']
+
+    # --- State for each leg ---
+    leg_a_held = 0;  leg_a_cost = 0.0;  leg_a_days = 0
+    leg_b_held = 0;  leg_b_cost = 0.0;  leg_b_days = 0
+
+    raw_trades = []   # combined, will be sorted at end
+    ledger     = []
+
+    for i in range(len(df)):
+        cur_date  = df.index[i]
+        cur_close = close.iloc[i]
+        cur_ibs   = ibs.iloc[i]
+        if pd.isna(cur_ibs):
+            continue
+
+        if leg_a_held > 0: leg_a_days += 1
+        if leg_b_held > 0: leg_b_days += 1
+
+        # ---- Leg A: Core ----
+        if cur_ibs < CORE_ENTRY:
+            if leg_a_held == 0: leg_a_days = 1
+            leg_a_held += 1
+            leg_a_cost += cur_close
+            log(f"[{cur_date.strftime('%Y-%m-%d')}] [Core]     BUY 1 @ {cur_close:.2f} | Held: {leg_a_held} | IBS: {cur_ibs:.4f}")
+            ledger.append({"Date": cur_date.strftime('%Y-%m-%d'), "Leg": "Core",
+                           "Action": "BUY", "Contracts": 1, "Price": round(cur_close, 2),
+                           "Total Held": leg_a_held, "Avg Entry": "", "P/L Pts": "", "P/L USD": "",
+                           "Reason": "Core Entry", "IBS": round(cur_ibs, 4)})
+        elif leg_a_held > 0 and cur_ibs > CORE_EXIT:
+            avg_a  = leg_a_cost / leg_a_held
+            pts_a  = (cur_close * leg_a_held) - leg_a_cost
+            usd_a  = pts_a * multiplier
+            pct_a  = ((cur_close - avg_a) / avg_a) * 100
+            log(f"[{cur_date.strftime('%Y-%m-%d')}] [Core]     EXIT {leg_a_held} @ {cur_close:.2f} | Avg: {avg_a:.2f} | P/L: {pts_a:+.2f} pts (${usd_a:+.2f})")
+            raw_trades.append({"Exit Date": cur_date.strftime('%Y-%m-%d'), "Leg": "Core",
+                               "Reason": "IBS Exit", "Contracts": leg_a_held,
+                               "Avg Entry": round(avg_a, 2), "Exit Price": round(cur_close, 2),
+                               "Profit %": round(pct_a, 2), "Points": round(pts_a, 2),
+                               "Dollars": round(usd_a, 2)})
+            ledger.append({"Date": cur_date.strftime('%Y-%m-%d'), "Leg": "Core",
+                           "Action": "SELL ALL", "Contracts": leg_a_held, "Price": round(cur_close, 2),
+                           "Total Held": 0, "Avg Entry": round(avg_a, 2),
+                           "P/L Pts": round(pts_a, 2), "P/L USD": round(usd_a, 2),
+                           "Reason": "Core IBS Exit", "IBS": round(cur_ibs, 4)})
+            leg_a_held = 0; leg_a_cost = 0.0; leg_a_days = 0
+
+        # ---- Leg B: Deep Dip ----
+        if cur_ibs < DEEP_DIP_ENTRY:
+            if leg_b_held == 0: leg_b_days = 1
+            leg_b_held += 1
+            leg_b_cost += cur_close
+            log(f"[{cur_date.strftime('%Y-%m-%d')}] [DeepDip]  BUY 1 @ {cur_close:.2f} | Held: {leg_b_held} | IBS: {cur_ibs:.4f}")
+            ledger.append({"Date": cur_date.strftime('%Y-%m-%d'), "Leg": "Deep Dip",
+                           "Action": "BUY", "Contracts": 1, "Price": round(cur_close, 2),
+                           "Total Held": leg_b_held, "Avg Entry": "", "P/L Pts": "", "P/L USD": "",
+                           "Reason": "Deep Dip Entry", "IBS": round(cur_ibs, 4)})
+        elif leg_b_held > 0 and cur_ibs > DEEP_DIP_EXIT:
+            avg_b  = leg_b_cost / leg_b_held
+            pts_b  = (cur_close * leg_b_held) - leg_b_cost
+            usd_b  = pts_b * multiplier
+            pct_b  = ((cur_close - avg_b) / avg_b) * 100
+            log(f"[{cur_date.strftime('%Y-%m-%d')}] [DeepDip]  EXIT {leg_b_held} @ {cur_close:.2f} | Avg: {avg_b:.2f} | P/L: {pts_b:+.2f} pts (${usd_b:+.2f})")
+            raw_trades.append({"Exit Date": cur_date.strftime('%Y-%m-%d'), "Leg": "Deep Dip",
+                               "Reason": "IBS Exit", "Contracts": leg_b_held,
+                               "Avg Entry": round(avg_b, 2), "Exit Price": round(cur_close, 2),
+                               "Profit %": round(pct_b, 2), "Points": round(pts_b, 2),
+                               "Dollars": round(usd_b, 2)})
+            ledger.append({"Date": cur_date.strftime('%Y-%m-%d'), "Leg": "Deep Dip",
+                           "Action": "SELL ALL", "Contracts": leg_b_held, "Price": round(cur_close, 2),
+                           "Total Held": 0, "Avg Entry": round(avg_b, 2),
+                           "P/L Pts": round(pts_b, 2), "P/L USD": round(usd_b, 2),
+                           "Reason": "Deep Dip IBS Exit", "IBS": round(cur_ibs, 4)})
+            leg_b_held = 0; leg_b_cost = 0.0; leg_b_days = 0
+
+    # Sort combined ledger by date
+    ledger.sort(key=lambda x: x["Date"])
+    raw_trades.sort(key=lambda x: x["Exit Date"])
+    trades = raw_trades
+
+    if not trades:
+        log("No trades executed based on criteria.")
+        return "\n".join(output), [], []
+
+    import numpy as np
+
+    total_trades    = len(trades)
+    winning_trades  = [t for t in trades if t["Dollars"] > 0]
+    losing_trades   = [t for t in trades if t["Dollars"] <= 0]
+    num_wins        = len(winning_trades)
+    num_losses      = len(losing_trades)
+    win_rate        = (num_wins / total_trades) * 100
+    gross_profit    = sum(t["Dollars"] for t in winning_trades)
+    gross_loss      = abs(sum(t["Dollars"] for t in losing_trades))
+    profit_factor   = (gross_profit / gross_loss) if gross_loss > 0 else 99.99
+    avg_win         = (gross_profit / num_wins) if num_wins > 0 else 0.0
+    avg_loss        = (gross_loss / num_losses) if num_losses > 0 else 0.0
+    total_dollars   = sum(t["Dollars"] for t in trades)
+    total_points    = sum(t["Points"] for t in trades)
+    avg_trade_pl    = total_dollars / total_trades
+    trade_profits   = [t["Dollars"] for t in trades]
+    sharpe_ratio    = (np.mean(trade_profits) / np.std(trade_profits)) if np.std(trade_profits) > 0 else 0.0
+    expectancy      = (win_rate / 100 * avg_win) - ((1 - win_rate / 100) * avg_loss)
+    total_return_pct= sum(t["Profit %"] for t in trades)
+
+    # Core vs Deep Dip split
+    core_trades = [t for t in trades if t["Leg"] == "Core"]
+    dd_trades   = [t for t in trades if t["Leg"] == "Deep Dip"]
+
+    equity = 0; peak_equity = 0; max_dd = 0; max_consec_loss = 0; current_consec = 0
+    for t in trades:
+        equity += t["Dollars"]
+        if equity > peak_equity: peak_equity = equity
+        dd = peak_equity - equity
+        if dd > max_dd: max_dd = dd
+        if t["Dollars"] < 0:
+            current_consec += 1
+            if current_consec > max_consec_loss: max_consec_loss = current_consec
+        else:
+            current_consec = 0
+
+    log(f"\n--- Blended Results ({start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}) ---")
+    log(f"Strategy:         Blended Core (0.32/0.90) + Deep Dip (0.24/0.85)")
+    log(f"Total Trades:     {total_trades}  (Core: {len(core_trades)} | Deep Dip: {len(dd_trades)})")
+    log(f"Win Rate:         {win_rate:.2f}%")
+    log(f"Total Points:     {total_points:+.2f} pts")
+    log(f"Max Drawdown:     -{max_dd / multiplier:.2f}")
+    log(f"Avg Trade P/L:    {avg_trade_pl / multiplier:.2f}")
+    log(f"Profit Factor:    {profit_factor:.2f}")
+    log(f"Sharpe Ratio:     {sharpe_ratio:.2f}")
+    log(f"Expectancy:       {expectancy / multiplier:.2f}")
+    log(f"Max Consec Loss:  {max_consec_loss}")
+    log(f"Avg Win:          {avg_win / multiplier:.2f}")
+    log(f"Avg Loss:         -{avg_loss / multiplier:.2f}")
+    log("-------------------------------------------------")
+
+    return "\n".join(output), trades, ledger
+
+
 def run_sb_backtest(df, params, log, output):
+
     start_date = df.index[0]
     end_date = df.index[-1]
     raw_ticker = params["symbol"].upper()
@@ -589,6 +793,8 @@ def run_sb_backtest(df, params, log, output):
         current_date = df.index[i]
         c_open, c_high, c_low, c_close = df['Open'].iloc[i], df['High'].iloc[i], df['Low'].iloc[i], df['Close'].iloc[i]
         
+        current_ibs = (c_close - c_low) / (c_high - c_low) if c_high > c_low else 0.5
+        
         # Check Silver Bullet Window (10-11 AM EST)
         hour = current_date.hour
         is_sb_window = (hour == 10)
@@ -603,14 +809,14 @@ def run_sb_backtest(df, params, log, output):
                     loss = fvg_entry - fvg_sl
                     log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] SELL (Stop Loss) 1 Contract @ {fvg_sl:.2f} | P/L: {-loss:+.2f} pts")
                     contracts_held = 0
-                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "SELL (SL)", "Contracts": 0, "Price": round(fvg_sl, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(-loss, 2), "P/L USD": round(-loss*multiplier, 2), "Reason": "SL Hit"})
+                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "SELL (SL)", "Contracts": 0, "Price": round(fvg_sl, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(-loss, 2), "P/L USD": round(-loss*multiplier, 2), "Reason": "SL Hit", "IBS": round(current_ibs, 4)})
                     trades.append({"Profit %": (-loss/fvg_entry)*100, "Points": -loss, "Dollars": -loss*multiplier})
                     active_fvg = None
                 elif c_high >= fvg_tp:
                     profit = fvg_tp - fvg_entry
                     log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] SELL (Take Profit) 1 Contract @ {fvg_tp:.2f} | P/L: {profit:+.2f} pts")
                     contracts_held = 0
-                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "SELL (TP)", "Contracts": 0, "Price": round(fvg_tp, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(profit, 2), "P/L USD": round(profit*multiplier, 2), "Reason": "TP Hit"})
+                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "SELL (TP)", "Contracts": 0, "Price": round(fvg_tp, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(profit, 2), "P/L USD": round(profit*multiplier, 2), "Reason": "TP Hit", "IBS": round(current_ibs, 4)})
                     trades.append({"Profit %": (profit/fvg_entry)*100, "Points": profit, "Dollars": profit*multiplier})
                     active_fvg = None
             elif active_fvg == 'bearish':
@@ -618,14 +824,14 @@ def run_sb_backtest(df, params, log, output):
                     loss = fvg_sl - fvg_entry
                     log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] BUY TO COVER (Stop Loss) 1 Contract @ {fvg_sl:.2f} | P/L: {-loss:+.2f} pts")
                     contracts_held = 0
-                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "BUY COVER (SL)", "Contracts": 0, "Price": round(fvg_sl, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(-loss, 2), "P/L USD": round(-loss*multiplier, 2), "Reason": "SL Hit"})
+                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "BUY COVER (SL)", "Contracts": 0, "Price": round(fvg_sl, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(-loss, 2), "P/L USD": round(-loss*multiplier, 2), "Reason": "SL Hit", "IBS": round(current_ibs, 4)})
                     trades.append({"Profit %": (-loss/fvg_entry)*100, "Points": -loss, "Dollars": -loss*multiplier})
                     active_fvg = None
                 elif c_low <= fvg_tp:
                     profit = fvg_entry - fvg_tp
                     log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] BUY TO COVER (Take Profit) 1 Contract @ {fvg_tp:.2f} | P/L: {profit:+.2f} pts")
                     contracts_held = 0
-                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "BUY COVER (TP)", "Contracts": 0, "Price": round(fvg_tp, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(profit, 2), "P/L USD": round(profit*multiplier, 2), "Reason": "TP Hit"})
+                    ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "BUY COVER (TP)", "Contracts": 0, "Price": round(fvg_tp, 2), "Total Held": 0, "Avg Entry": round(fvg_entry, 2), "P/L Pts": round(profit, 2), "P/L USD": round(profit*multiplier, 2), "Reason": "TP Hit", "IBS": round(current_ibs, 4)})
                     trades.append({"Profit %": (profit/fvg_entry)*100, "Points": profit, "Dollars": profit*multiplier})
                     active_fvg = None
             continue
@@ -649,12 +855,12 @@ def run_sb_backtest(df, params, log, output):
                 contracts_held = 1
                 active_fvg = 'bullish'
                 log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] BUY 1 Contract @ {fvg_entry:.2f}")
-                ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "BUY", "Contracts": 1, "Price": round(fvg_entry, 2), "Total Held": 1, "Avg Entry": "", "P/L Pts": "", "P/L USD": "", "Reason": ""})
+                ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "BUY", "Contracts": 1, "Price": round(fvg_entry, 2), "Total Held": 1, "Avg Entry": "", "P/L Pts": "", "P/L USD": "", "Reason": "", "IBS": round(current_ibs, 4)})
             elif active_fvg == 'bearish_pending' and c_high >= fvg_entry:
                 contracts_held = -1
                 active_fvg = 'bearish'
                 log(f"[{current_date.strftime('%Y-%m-%d %H:%M')}] SELL SHORT 1 Contract @ {fvg_entry:.2f}")
-                ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "SELL SHORT", "Contracts": -1, "Price": round(fvg_entry, 2), "Total Held": -1, "Avg Entry": "", "P/L Pts": "", "P/L USD": "", "Reason": ""})
+                ledger.append({"Date": current_date.strftime('%Y-%m-%d %H:%M'), "Action": "SELL SHORT", "Contracts": -1, "Price": round(fvg_entry, 2), "Total Held": -1, "Avg Entry": "", "P/L Pts": "", "P/L USD": "", "Reason": "", "IBS": round(current_ibs, 4)})
 
     if not trades:
         log("No trades executed based on criteria.")

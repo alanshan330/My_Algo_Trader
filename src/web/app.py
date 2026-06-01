@@ -152,6 +152,10 @@ def run_backtest_api():
         except: params['entry_threshold'] = 0.21
         try: params['exit_threshold'] = float(params.get('exit_ibs', 0.87))
         except: params['exit_threshold'] = 0.87
+        try: params['entry_threshold_b'] = float(params['entry_ibs_b']) if params.get('entry_ibs_b') is not None else None
+        except: params['entry_threshold_b'] = None
+        try: params['exit_threshold_b'] = float(params['exit_ibs_b']) if params.get('exit_ibs_b') is not None else None
+        except: params['exit_threshold_b'] = None
         try: params['take_profit'] = float(params.get('take_profit', 0.0))
         except: params['take_profit'] = 0.0
         try: params['stop_loss'] = float(params.get('stop_loss', 0.0))
@@ -232,12 +236,42 @@ def run_backtest_api():
             ledger_json=json.dumps(ledger)
         )
             
+        # Build blend_summary if this is a blended run
+        blend_summary = None
+        if 'Blended' in params.get('strategy', '') and trades_list:
+            def leg_stats(leg_trades, multiplier=1):
+                if not leg_trades: 
+                    return {
+                        'trades': 0, 'win_rate': 0.0, 'total_pts': 0.0, 
+                        'avg_pts': 0.0, 'max_loss_pts': 0.0, 'wins': 0, 'losses': 0
+                    }
+                wins = [t for t in leg_trades if t.get('Dollars', t.get('Points', 0)) > 0]
+                losses = [t for t in leg_trades if t.get('Dollars', t.get('Points', 0)) <= 0]
+                total_pts = sum(t.get('Points', 0) for t in leg_trades)
+                max_loss = min((t.get('Points', 0) for t in leg_trades), default=0)
+                return {
+                    'trades': len(leg_trades),
+                    'win_rate': round(len(wins) / len(leg_trades) * 100, 1),
+                    'total_pts': round(total_pts, 1),
+                    'avg_pts': round(total_pts / len(leg_trades), 1),
+                    'max_loss_pts': round(max_loss, 1),
+                    'wins': len(wins),
+                    'losses': len(losses),
+                }
+            core_trades = [t for t in trades_list if t.get('Leg') == 'Core']
+            dd_trades   = [t for t in trades_list if t.get('Leg') == 'Deep Dip']
+            blend_summary = {
+                'leg_a': {'label': f"Leg A — Core ({params.get('entry_threshold', 0.32)}/{params.get('exit_threshold', 0.90)})", **leg_stats(core_trades)},
+                'leg_b': {'label': f"Leg B — Deep Dip ({params.get('entry_threshold_b', 0.24)}/{params.get('exit_threshold_b', 0.85)})", **leg_stats(dd_trades)},
+            }
+
         return jsonify({
             "status": "success", 
             "report": report_text, 
             "trades_file": csv_path, 
             "report_file": report_path,
-            "data": ledger
+            "data": ledger,
+            "blend_summary": blend_summary
         })
     except Exception as e:
         import traceback
@@ -273,8 +307,8 @@ def run_optimize_api():
         with open(STATE_FILE, "w") as f:
             json.dump(request.json, f, indent=4)
             
-        # Run subprocess and capture output
-        result = subprocess.run([sys.executable, script_path], capture_output=True, text=True)
+        # Run subprocess and capture output (5-minute timeout to prevent infinite hang)
+        result = subprocess.run([sys.executable, script_path], capture_output=True, text=True, timeout=300)
         
         # Read the latest generated report to send back to the UI
         search_pattern = os.path.join(ROOT_DIR, "results", "ibs_optimization_report_*.csv")
@@ -284,8 +318,17 @@ def run_optimize_api():
             latest_file = max(files, key=os.path.getmtime)
             df = pd.read_csv(latest_file)
             data_json = df.to_dict(orient='records')
+        
+        # Read blend report if available
+        blend_pattern = os.path.join(ROOT_DIR, "results", "ibs_blend_report_*.csv")
+        blend_files = glob.glob(blend_pattern)
+        blend_json = []
+        if blend_files:
+            latest_blend = max(blend_files, key=os.path.getmtime)
+            bdf = pd.read_csv(latest_blend)
+            blend_json = bdf.to_dict(orient='records')
             
-        return jsonify({"status": "success", "output": result.stdout + "\n" + result.stderr, "data": data_json})
+        return jsonify({"status": "success", "output": result.stdout + "\n" + result.stderr, "data": data_json, "blend_data": blend_json})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 
@@ -606,4 +649,4 @@ def stop_live_api():
     return jsonify({"status": "error", "message": "No Live Trader running."})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, threaded=True)

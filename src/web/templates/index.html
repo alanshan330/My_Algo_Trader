@@ -64,6 +64,7 @@
                             <select id="strategy" class="glass-input">
                                 <option value="IBS Strategy (Average Down)" {% if state.get('strategy') == 'IBS Strategy (Average Down)' %}selected{% endif %}>IBS Strategy (Average Down)</option>
                                 <option value="IBS Strategy (Single Entry)" {% if state.get('strategy') == 'IBS Strategy (Single Entry)' %}selected{% endif %}>IBS Strategy (Single Entry)</option>
+                                <option value="IBS Strategy (Blended: Core + Deep Dip)" {% if state.get('strategy') == 'IBS Strategy (Blended: Core + Deep Dip)' %}selected{% endif %}>⚡ IBS Blended: Core + Deep Dip</option>
                             </select>
                         </div>
                         <div style="flex: 1; min-width: 130px;">
@@ -95,11 +96,11 @@
                     <!-- IBS Parameters row -->
                     <div style="display:flex; flex-wrap:wrap; gap:1rem; margin-top:1rem; align-items:flex-end;">
                         <div style="flex:1; min-width:100px;">
-                            <label>Entry IBS</label>
+                            <label id="entry-ibs-label">Entry IBS</label>
                             <input type="number" step="0.01" id="entry_ibs" value="{{ state.get('entry_ibs', 0.21) }}" class="glass-input">
                         </div>
                         <div style="flex:1; min-width:100px;">
-                            <label>Exit IBS</label>
+                            <label id="exit-ibs-label">Exit IBS</label>
                             <input type="number" step="0.01" id="exit_ibs" value="{{ state.get('exit_ibs', 0.87) }}" class="glass-input">
                         </div>
                         <div style="flex:1; min-width:100px;">
@@ -121,6 +122,22 @@
                                 <span class="btn-text">&#128721; STOP ENGINE</span>
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Leg B Parameters row (Blended strategy only) -->
+                    <div id="blend-leg-b-row" style="display:none; flex-wrap:wrap; gap:1rem; margin-top:0.75rem; align-items:flex-end; background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.3); border-radius: 10px; padding: 0.75rem 1rem;">
+                        <div style="width:100%; margin-bottom:0.25rem;">
+                            <span style="font-size:0.78rem; color:#a78bfa; font-weight:600; letter-spacing:0.05em;">⚡ LEG B — DEEP DIP PARAMETERS</span>
+                        </div>
+                        <div style="flex:1; min-width:100px;">
+                            <label style="color:#c4b5fd;">Leg B Entry IBS</label>
+                            <input type="number" step="0.01" id="entry_ibs_b" value="{{ state.get('entry_ibs_b', 0.24) }}" class="glass-input" style="border-color: rgba(139,92,246,0.5);">
+                        </div>
+                        <div style="flex:1; min-width:100px;">
+                            <label style="color:#c4b5fd;">Leg B Exit IBS</label>
+                            <input type="number" step="0.01" id="exit_ibs_b" value="{{ state.get('exit_ibs_b', 0.85) }}" class="glass-input" style="border-color: rgba(139,92,246,0.5);">
+                        </div>
+                        <div style="flex:3;"></div>
                     </div>
                 </div>
 
@@ -280,7 +297,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
     <script src="{{ url_for('static', filename='ui.js') }}?v=1"></script>
-    <script src="{{ url_for('static', filename='ibs.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='ibs.js') }}?v=7"></script>
     <script src="{{ url_for('static', filename='dt.js') }}?v=1"></script>
 </body>
 </html>

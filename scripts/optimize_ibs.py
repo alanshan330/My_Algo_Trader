@@ -123,6 +123,7 @@ def run_backtest(df, entry_thresh, exit_thresh, is_avg_down,
     trades         = []
     days_held      = 0
     highest_high   = 0.0
+    max_contracts_used = 0
 
     for i in range(len(df)):
         cur_close = close.iloc[i]
@@ -147,6 +148,8 @@ def run_backtest(df, entry_thresh, exit_thresh, is_avg_down,
                     highest_high = cur_close
                     days_held = 1
                 contracts_held += 1
+                if contracts_held > max_contracts_used:
+                    max_contracts_used = contracts_held
                 total_cost     += cur_close
 
         elif contracts_held > 0:
@@ -174,6 +177,7 @@ def run_backtest(df, entry_thresh, exit_thresh, is_avg_down,
                 pts = (exit_price * contracts_held) - total_cost
                 pct = ((exit_price - avg_entry) / avg_entry) * 100
                 trades.append({
+                    "index":      i,
                     "profit_pct": pct,
                     "points":     pts,
                     "dollars":    pts * multiplier,
@@ -188,12 +192,17 @@ def run_backtest(df, entry_thresh, exit_thresh, is_avg_down,
 
     total = len(trades)
     wins  = sum(1 for t in trades if t["profit_pct"] > 0)
+    losses = [t["points"] for t in trades if t["points"] < 0]
+    max_loss = min(losses) if losses else 0.0
     return {
         "trades":      total,
         "win_rate":    (wins / total) * 100,
         "total_pts":   sum(t["points"] for t in trades),
         "total_usd":   sum(t["dollars"] for t in trades),
         "avg_pts":     sum(t["points"] for t in trades) / total,
+        "max_loss":    max_loss,
+        "max_contracts": max_contracts_used,
+        "trade_list":  trades
     }
 
 
@@ -258,12 +267,17 @@ def main():
     else:
         multiplier = next((v for k,v in mult_map.items() if k in sym_to_use), 1)
 
-    is_avg_down = "Average Down" in saved_strategy
+    is_avg_down = "Average Down" in saved_strategy or "Blended" in saved_strategy
+    
+    # If max_contracts is 0 (unlimited), use a sensible default for optimization
+    # Unlimited contracts inflates drawdowns and produces inconsistent results
+    if saved_max_cont == 0:
+        saved_max_cont = 3
 
     total_combos = len(ENTRY_VALUES) * len(EXIT_VALUES)
     print(f"\nRunning {total_combos} parameter combinations...")
     print(f"Symbol: {sym_to_use} | Period: {start_date.date()} to {end_date.date()}")
-    print(f"Mode: {saved_strategy} | Trend Filter: {saved_trend} | Max Hold: {saved_max_hold}d | Max Contracts: {saved_max_cont}\n")
+    print(f"Mode: {saved_strategy} | Trend Filter: {saved_trend} | Max Hold: {saved_max_hold}d | Max Contracts: {saved_max_cont}")
 
     results = []
     for idx, (entry, exit_) in enumerate(product(ENTRY_VALUES, EXIT_VALUES), 1):
@@ -285,26 +299,63 @@ def main():
         return
 
     # ── Sort and report ─────────────────────────────────────────────────────────
-    results_df = pd.DataFrame(results).sort_values("total_pts", ascending=False)
+    highest_pts = max(r["total_pts"] for r in results)
+    highest_pts = highest_pts if highest_pts > 0 else 1
+    
+    smallest_loss_abs = min(abs(r["max_loss"]) for r in results)
+    lowest_max_cont = min(r["max_contracts"] for r in results)
+    if lowest_max_cont == 0: lowest_max_cont = 1
+
+    highest_avg = max(abs(r["avg_pts"]) for r in results) or 1
+
+    for r in results:
+        # Total profit score (35 pts) — still the biggest factor
+        profit_score = (r["total_pts"] / highest_pts) * 35 if r["total_pts"] > 0 else 0
+        
+        # Average trade quality (15 pts) — rewards fewer, higher-quality trades
+        avg_score = (r["avg_pts"] / highest_avg) * 15 if r["avg_pts"] > 0 else 0
+        
+        # Max loss / risk score (20 pts) — smaller single loss = better
+        loss_abs = abs(r["max_loss"])
+        if loss_abs == 0:
+            loss_score = 20.0
+        else:
+            loss_score = (max(smallest_loss_abs, 0.01) / max(loss_abs, 0.01)) * 20.0
+            loss_score = min(loss_score, 20.0)
+            
+        # Win rate score (20 pts) — consistency
+        win_score = (r["win_rate"] / 100.0) * 20.0
+        
+        # Contract exposure score (10 pts) — lower exposure = safer
+        cont = max(r["max_contracts"], 1)
+        cont_score = (lowest_max_cont / cont) * 10.0
+        
+        r["composite_score"] = profit_score + avg_score + loss_score + win_score + cont_score
+        r["s_profit"] = round(profit_score, 1)
+        r["s_avg"] = round(avg_score, 1)
+        r["s_risk"] = round(loss_score, 1)
+        r["s_winrate"] = round(win_score, 1)
+        r["s_exposure"] = round(cont_score, 1)
+
+    results_df = pd.DataFrame(results).sort_values("composite_score", ascending=False)
 
     print("\n" + "="*80)
     print(f"  IBS PARAMETER OPTIMIZATION RESULTS — Top 20 Combinations")
     print(f"  Symbol: {sym_to_use} | {start_date.date()} to {end_date.date()} | Mode: {saved_strategy}")
     print("="*80)
-    print(f"  {'Rank':<5} {'Entry':<8} {'Exit':<8} {'Trades':<8} {'WinRate':<10} {'Total Pts':>12} {'Total USD':>14} {'Avg Pts/Trade':>15}")
-    print("  " + "-"*78)
+    print(f"  {'Rank':<5} {'Score':<7} {'Entry':<8} {'Exit':<8} {'Trades':<8} {'WinRate':<10} {'Total Pts':>10} {'Max Loss':>10}")
+    print("  " + "-"*80)
 
     for rank, (_, row) in enumerate(results_df.head(20).iterrows(), 1):
-        print(f"  {rank:<5} {row['entry']:<8.2f} {row['exit']:<8.2f} "
+        print(f"  {rank:<5} {row['composite_score']:<7.1f} {row['entry']:<8.2f} {row['exit']:<8.2f} "
               f"{int(row['trades']):<8} {row['win_rate']:>7.1f}%   "
-              f"{row['total_pts']:>12.1f} ${row['total_usd']:>13,.0f} "
-              f"{row['avg_pts']:>13.1f}")
+              f"{row['total_pts']:>10.1f} {row['max_loss']:>10.1f}")
 
     best = results_df.iloc[0]
     print("\n" + "="*80)
     print(f"  *  BEST PARAMETERS: Entry IBS = {best['entry']:.2f}  |  Exit IBS = {best['exit']:.2f}")
-    print(f"     {int(best['trades'])} trades | {best['win_rate']:.1f}% win rate | "
-          f"{best['total_pts']:+.1f} pts | ${best['total_usd']:+,.0f}")
+    print(f"     Score: {best['composite_score']:.1f}/100 | {int(best['trades'])} trades | {best['win_rate']:.1f}% win rate | "
+          f"{best['total_pts']:+.1f} pts | Max Loss: {best['max_loss']:.1f} pts")
     print("="*80)
 
     # Save to file
@@ -313,6 +364,149 @@ def main():
     out_path = os.path.join(os.path.dirname(__file__), "..", "results", f"ibs_optimization_report_{stamp}.csv")
     results_df.to_csv(out_path, index=False)
     print(f"\n  Full results saved to: {os.path.basename(out_path)}")
+    
+    # ── Blend Pair Optimization ──────────────────────────────────────────────────
+    # Select diverse candidates (best at each entry level) and score pairs
+    # by Return/Drawdown ratio and entry diversity — not just raw profit.
+    if "Blended" in saved_strategy:
+        print("\n" + "="*80)
+        print("  BLEND PAIR OPTIMIZATION -- Finding uncorrelated Core + Deep Dip pairs...")
+        print("="*80)
+        
+        # Step 1: Pick the best combo at EACH unique entry level for diversity
+        candidates = []
+        for entry_val in sorted(results_df['entry'].unique()):
+            subset = results_df[results_df['entry'] == entry_val]
+            best_at_entry = subset.iloc[0]
+            candidates.append(best_at_entry.to_dict())
+        
+        print(f"  Selected {len(candidates)} diverse candidates (best per entry level)")
+        
+        # Step 2: Test all pairs where Core entry > Deep Dip entry
+        blend_results = []
+        pair_count = 0
+        for i, core in enumerate(candidates):
+            for j, dd in enumerate(candidates):
+                if i == j:
+                    continue
+                if core['entry'] == dd['entry']:
+                    continue
+                # Core = wider entry (higher), Deep Dip = tighter entry (lower)
+                if core['entry'] < dd['entry']:
+                    continue
+                    
+                r_core = run_backtest(df, core['entry'], core['exit'], True,
+                                     saved_trend, saved_max_hold, saved_max_cont,
+                                     multiplier, atr, sma_200)
+                r_dd = run_backtest(df, dd['entry'], dd['exit'], True,
+                                   saved_trend, saved_max_hold, saved_max_cont,
+                                   multiplier, atr, sma_200)
+                
+                if not r_core or not r_dd:
+                    continue
+                
+                total_trades = r_core['trades'] + r_dd['trades']
+                total_pts = r_core['total_pts'] + r_dd['total_pts']
+                total_usd = r_core['total_usd'] + r_dd['total_usd']
+                wins_core = int(r_core['trades'] * r_core['win_rate'] / 100)
+                wins_dd = int(r_dd['trades'] * r_dd['win_rate'] / 100)
+                combined_wr = ((wins_core + wins_dd) / total_trades * 100) if total_trades > 0 else 0
+                combined_avg = total_pts / total_trades if total_trades > 0 else 0
+                
+                # Calculate true peak-to-trough combined drawdown
+                all_trades = r_core['trade_list'] + r_dd['trade_list']
+                all_trades.sort(key=lambda t: t['index'])
+                equity = 0.0
+                peak_equity = 0.0
+                max_dd = 0.0
+                for t in all_trades:
+                    equity += t['points']
+                    if equity > peak_equity:
+                        peak_equity = equity
+                    drawdown = peak_equity - equity
+                    if drawdown > max_dd:
+                        max_dd = drawdown
+                        
+                # Ensure we have a valid non-zero drawdown for ratio math
+                combined_max_loss = -max_dd if max_dd > 0 else -1.0
+                
+                combined_max_cont = max(r_core['max_contracts'], r_dd['max_contracts'])
+                
+                dd_abs = abs(combined_max_loss) if combined_max_loss != 0 else 1
+                ret_dd_ratio = total_pts / dd_abs
+                entry_spread = abs(core['entry'] - dd['entry'])
+                
+                blend_results.append({
+                    'core_entry': core['entry'],
+                    'core_exit': core['exit'],
+                    'dd_entry': dd['entry'],
+                    'dd_exit': dd['exit'],
+                    'trades': total_trades,
+                    'win_rate': combined_wr,
+                    'total_pts': total_pts,
+                    'total_usd': total_usd,
+                    'avg_pts': combined_avg,
+                    'max_loss': combined_max_loss,
+                    'max_contracts': combined_max_cont,
+                    'ret_dd_ratio': ret_dd_ratio,
+                    'entry_spread': entry_spread,
+                })
+                pair_count += 1
+        
+        print(f"  Tested {pair_count} blend pairs.")
+        
+        if blend_results:
+            # Blend scoring: rewards diversification + Return/Drawdown
+            b_highest_pts = max(r['total_pts'] for r in blend_results)
+            b_highest_pts = b_highest_pts if b_highest_pts > 0 else 1
+            b_highest_ratio = max(r['ret_dd_ratio'] for r in blend_results)
+            b_highest_ratio = b_highest_ratio if b_highest_ratio > 0 else 1
+            b_max_spread = max(r['entry_spread'] for r in blend_results) or 0.01
+            b_smallest_loss = min(abs(r['max_loss']) for r in blend_results)
+            b_highest_avg = max(abs(r['avg_pts']) for r in blend_results) or 1
+            
+            for r in blend_results:
+                ratio_score = (r['ret_dd_ratio'] / b_highest_ratio) * 25 if r['ret_dd_ratio'] > 0 else 0
+                profit_score = (r['total_pts'] / b_highest_pts) * 20 if r['total_pts'] > 0 else 0
+                diversity_score = (r['entry_spread'] / b_max_spread) * 15
+                win_score = (r['win_rate'] / 100.0) * 15
+                avg_score = (r['avg_pts'] / b_highest_avg) * 15 if r['avg_pts'] > 0 else 0
+                loss_abs = abs(r['max_loss'])
+                if loss_abs == 0:
+                    loss_score = 10.0
+                else:
+                    loss_score = (max(b_smallest_loss, 0.01) / max(loss_abs, 0.01)) * 10.0
+                    loss_score = min(loss_score, 10.0)
+                
+                r['blend_score'] = ratio_score + profit_score + diversity_score + win_score + avg_score + loss_score
+                r['s_retdd'] = round(ratio_score, 1)
+                r['s_profit'] = round(profit_score, 1)
+                r['s_diversity'] = round(diversity_score, 1)
+                r['s_winrate'] = round(win_score, 1)
+                r['s_avg'] = round(avg_score, 1)
+                r['s_risk'] = round(loss_score, 1)
+            
+            blend_df = pd.DataFrame(blend_results).sort_values('blend_score', ascending=False).head(10)
+            
+            print(f"\n  {'Rank':<5} {'Score':<7} {'Core':<12} {'DeepDip':<12} {'Trades':<8} {'WR%':<8} {'TotalPts':>10} {'Ret/DD':>8} {'Spread':>6}")
+            print("  " + "-"*85)
+            for rank, (_, row) in enumerate(blend_df.head(10).iterrows(), 1):
+                core_str = f"{row['core_entry']:.2f}/{row['core_exit']:.2f}"
+                dd_str = f"{row['dd_entry']:.2f}/{row['dd_exit']:.2f}"
+                print(f"  {rank:<5} {row['blend_score']:<7.1f} {core_str:<12} {dd_str:<12} "
+                      f"{int(row['trades']):<8} {row['win_rate']:>5.1f}%  "
+                      f"{row['total_pts']:>10.1f} {row['ret_dd_ratio']:>7.1f}x  {row['entry_spread']:>5.2f}")
+            
+            bb = blend_df.iloc[0]
+            print("\n" + "="*80)
+            print(f"  >> BEST BLEND: Core ({bb['core_entry']:.2f}/{bb['core_exit']:.2f}) + Deep Dip ({bb['dd_entry']:.2f}/{bb['dd_exit']:.2f})")
+            print(f"     Score: {bb['blend_score']:.1f}/100 | {int(bb['trades'])} trades | {bb['win_rate']:.1f}% WR | "
+                  f"{bb['total_pts']:+.1f} pts | Ret/DD: {bb['ret_dd_ratio']:.1f}x | Entry Spread: {bb['entry_spread']:.2f}")
+            print("="*80)
+            
+            blend_path = os.path.join(os.path.dirname(__file__), "..", "results", f"ibs_blend_report_{stamp}.csv")
+            blend_df.to_csv(blend_path, index=False)
+            print(f"\n  Blend results saved to: {os.path.basename(blend_path)}")
     
     # Log to Database
     try:
@@ -325,7 +519,8 @@ def main():
             best_params=params_str,
             best_profit=best['total_usd'],
             best_win_rate=best['win_rate'],
-            best_drawdown=0.0
+            max_loss_pts=best['max_loss'],
+            composite_score=best['composite_score']
         )
     except Exception as e:
         print(f"Failed to log to database: {e}")

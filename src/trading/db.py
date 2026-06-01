@@ -58,9 +58,21 @@ def init_db():
         best_params TEXT,
         best_profit REAL,
         best_win_rate REAL,
-        best_drawdown REAL
+        max_loss_pts REAL,
+        composite_score REAL
     )
     ''')
+    
+    # Try adding columns in case table already exists
+    try:
+        cursor.execute("ALTER TABLE optimizer_runs ADD COLUMN max_loss_pts REAL")
+    except sqlite3.OperationalError:
+        pass
+        
+    try:
+        cursor.execute("ALTER TABLE optimizer_runs ADD COLUMN composite_score REAL")
+    except sqlite3.OperationalError:
+        pass
     
     # Safely migrate existing tables
     try:
@@ -124,13 +136,13 @@ def get_all_backtest_runs():
     conn.close()
     return [dict(row) for row in rows]
 
-def log_optimizer_run(strategy, ticker, timeframe, best_params, best_profit, best_win_rate, best_drawdown):
+def log_optimizer_run(strategy, ticker, timeframe, best_params, best_profit, best_win_rate, max_loss_pts, composite_score):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
-    INSERT INTO optimizer_runs (timestamp, strategy, ticker, timeframe, best_params, best_profit, best_win_rate, best_drawdown)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), strategy, ticker, timeframe, best_params, best_profit, best_win_rate, best_drawdown))
+    INSERT INTO optimizer_runs (timestamp, strategy, ticker, timeframe, best_params, best_profit, best_win_rate, max_loss_pts, composite_score)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), strategy, ticker, timeframe, best_params, best_profit, best_win_rate, max_loss_pts, composite_score))
     conn.commit()
     conn.close()
 

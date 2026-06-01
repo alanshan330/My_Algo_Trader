@@ -91,7 +91,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'best_params': 'Best Params',
             'best_profit': 'Best Profit',
             'best_win_rate': 'Best Win %',
-            'best_drawdown': 'Best DD (pts)'
+            'max_loss_pts': 'Max Loss (pts)',
+            'composite_score': 'Score'
         };
         
         headers.forEach(header => {
@@ -129,8 +130,79 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         const detailTd = document.createElement('td');
                         detailTd.colSpan = headers.length;
-                        detailTd.style.padding = '15px 20px';
-                        detailTd.style.borderTop = '1px solid rgba(255,255,255,0.05)';
+                        detailTd.style.padding = '15px';
+                        detailTd.style.background = 'rgba(0,0,0,0.2)';
+                        
+                        // Calculate Top 5 Wins and Losses
+                        const exits = ledger.filter(r => r["P/L Pts"] !== "" && r["P/L Pts"] !== null && !isNaN(parseFloat(r["P/L Pts"])));
+                        const sortedExits = exits.map(r => ({...r, pts: parseFloat(r["P/L Pts"])})).sort((a,b) => b.pts - a.pts);
+                        
+                        const topWins = sortedExits.filter(r => r.pts > 0).slice(0, 5);
+                        const topLosses = sortedExits.filter(r => r.pts < 0).reverse().slice(0, 5); // largest losses first
+                        
+                        if (topWins.length > 0 || topLosses.length > 0) {
+                            const statsDiv = document.createElement('div');
+                            statsDiv.style.display = 'flex';
+                            statsDiv.style.gap = '2rem';
+                            statsDiv.style.marginBottom = '1.5rem';
+                            
+                            const createMiniTable = (title, data, color) => {
+                                const container = document.createElement('div');
+                                container.style.flex = '1';
+                                container.style.background = 'rgba(0,0,0,0.3)';
+                                container.style.padding = '10px';
+                                container.style.borderRadius = '8px';
+                                
+                                const h4 = document.createElement('h4');
+                                h4.textContent = title;
+                                h4.style.marginBottom = '8px';
+                                h4.style.color = 'var(--text-main)';
+                                h4.style.fontSize = '0.9rem';
+                                container.appendChild(h4);
+                                
+                                if (data.length === 0) {
+                                    const p = document.createElement('p');
+                                    p.textContent = 'None';
+                                    p.style.fontSize = '0.8rem';
+                                    p.style.color = 'var(--text-muted)';
+                                    container.appendChild(p);
+                                    return container;
+                                }
+                                
+                                const t = document.createElement('table');
+                                t.style.width = '100%';
+                                t.style.borderCollapse = 'collapse';
+                                
+                                data.forEach(row => {
+                                    const tr = document.createElement('tr');
+                                    tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+                                    
+                                    const tdDate = document.createElement('td');
+                                    tdDate.textContent = row.Date;
+                                    tdDate.style.fontSize = '0.8rem';
+                                    tdDate.style.padding = '4px 0';
+                                    tdDate.style.color = 'var(--text-muted)';
+                                    
+                                    const tdPts = document.createElement('td');
+                                    tdPts.textContent = (row.pts > 0 ? '+' : '') + row.pts.toFixed(2) + ' pts';
+                                    tdPts.style.fontSize = '0.85rem';
+                                    tdPts.style.fontWeight = 'bold';
+                                    tdPts.style.textAlign = 'right';
+                                    tdPts.style.padding = '4px 0';
+                                    tdPts.style.color = color;
+                                    
+                                    tr.appendChild(tdDate);
+                                    tr.appendChild(tdPts);
+                                    t.appendChild(tr);
+                                });
+                                container.appendChild(t);
+                                return container;
+                            };
+                            
+                            statsDiv.appendChild(createMiniTable('🏆 Top 5 Largest Wins', topWins, 'var(--success)'));
+                            statsDiv.appendChild(createMiniTable('💔 Top 5 Largest Losses', topLosses, 'var(--danger)'));
+                            detailTd.appendChild(statsDiv);
+                        }
                         
                         // Add title for sub-table
                         const title = document.createElement('h4');
