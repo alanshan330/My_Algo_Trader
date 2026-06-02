@@ -194,12 +194,17 @@ def run_backtest_api():
         pnl_match = re.search(r'Total Dollar Return[^:]*:\s*\$?([\+\-\d\.]+)', report_text)
         
         avg_pl_match = re.search(r'Average Trade P/L:\s*\$?([\+\-\d\.]+)', report_text)
+        # Also try blended format: "Avg Trade P/L:"
+        if not avg_pl_match:
+            avg_pl_match = re.search(r'Avg Trade P/L:\s*\$?([\+\-\d\.]+)', report_text)
         pf_match = re.search(r'Profit Factor:\s*([\d\.]+)', report_text)
-        sr_match = re.search(r'Sharpe Ratio \(Trade\):\s*([\-\d\.]+)', report_text)
+        sr_match = re.search(r'Sharpe Ratio[^:]*:\s*([\-\d\.]+)', report_text)
         exp_match = re.search(r'Expectancy:\s*\$?([\+\-\d\.]+)', report_text)
-        mcl_match = re.search(r'Max Consecutive Losses:\s*(\d+)', report_text)
-        aw_match = re.search(r'Average Win:\s*\$?([\+\-\d\.]+)', report_text)
-        al_match = re.search(r'Average Loss:\s*-\$?([\d\.]+)', report_text)
+        mcl_match = re.search(r'Max Consec[^\d]*([\d]+)', report_text)
+        aw_match = re.search(r'Avg(?:erage)? Win:\s*\$?([\+\-\d\.]+)', report_text)
+        al_match = re.search(r'Avg(?:erage)? Loss:\s*-?\$?([\d\.]+)', report_text)
+        ml_match = re.search(r'Max Loss:\s*([\+\-\d\.]+)', report_text)
+        tp_match = re.search(r'Total Points(?:\sCaptured)?:\s*([\+\-\d\.]+)', report_text)
         
         tr = int(tr_match.group(1)) if tr_match else 0
         wr = float(wr_match.group(1)) if wr_match else 0.0
@@ -213,6 +218,8 @@ def run_backtest_api():
         mcl = int(mcl_match.group(1)) if mcl_match else 0
         aw = float(aw_match.group(1).replace('+', '')) if aw_match else 0.0
         al = float(al_match.group(1)) if al_match else 0.0
+        ml = float(ml_match.group(1).replace('+', '')) if ml_match else 0.0
+        tp = float(tp_match.group(1).replace('+', '')) if tp_match else pnl
         
         from src.trading import db
         import json
@@ -233,7 +240,9 @@ def run_backtest_api():
             avg_loss=al,
             entry_ibs=float(params.get('entry_threshold', 0.0)),
             exit_ibs=float(params.get('exit_threshold', 0.0)),
-            ledger_json=json.dumps(ledger)
+            ledger_json=json.dumps(ledger),
+            max_loss_pts=ml,
+            total_points=tp
         )
             
         # Build blend_summary if this is a blended run

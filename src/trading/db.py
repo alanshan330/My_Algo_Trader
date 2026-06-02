@@ -84,7 +84,8 @@ def init_db():
     new_cols = [
         ("avg_trade_pl", "REAL"), ("profit_factor", "REAL"), ("sharpe_ratio", "REAL"),
         ("expectancy", "REAL"), ("max_consec_loss", "INTEGER"), ("avg_win", "REAL"), ("avg_loss", "REAL"),
-        ("entry_ibs", "REAL"), ("exit_ibs", "REAL")
+        ("entry_ibs", "REAL"), ("exit_ibs", "REAL"),
+        ("max_loss_pts", "REAL"), ("total_points", "REAL")
     ]
     for col_name, col_type in new_cols:
         try:
@@ -108,13 +109,13 @@ def log_live_trade(strategy, ticker, action, quantity, price, ibs_value):
     conn.close()
 
 def log_backtest_run(strategy, ticker, timeframe, total_trades, win_rate, total_profit, max_drawdown, 
-                     avg_trade_pl=0.0, profit_factor=0.0, sharpe_ratio=0.0, expectancy=0.0, max_consec_loss=0, avg_win=0.0, avg_loss=0.0, entry_ibs=0.0, exit_ibs=0.0, ledger_json="[]"):
+                     avg_trade_pl=0.0, profit_factor=0.0, sharpe_ratio=0.0, expectancy=0.0, max_consec_loss=0, avg_win=0.0, avg_loss=0.0, entry_ibs=0.0, exit_ibs=0.0, ledger_json="[]", max_loss_pts=0.0, total_points=0.0):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
-    INSERT INTO backtest_runs (timestamp, strategy, ticker, timeframe, total_trades, win_rate, total_profit, max_drawdown, avg_trade_pl, profit_factor, sharpe_ratio, expectancy, max_consec_loss, avg_win, avg_loss, entry_ibs, exit_ibs, ledger_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), strategy, ticker, timeframe, total_trades, win_rate, total_profit, max_drawdown, avg_trade_pl, profit_factor, sharpe_ratio, expectancy, max_consec_loss, avg_win, avg_loss, entry_ibs, exit_ibs, ledger_json))
+    INSERT INTO backtest_runs (timestamp, strategy, ticker, timeframe, total_trades, win_rate, total_profit, max_drawdown, avg_trade_pl, profit_factor, sharpe_ratio, expectancy, max_consec_loss, avg_win, avg_loss, entry_ibs, exit_ibs, ledger_json, max_loss_pts, total_points)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), strategy, ticker, timeframe, total_trades, win_rate, total_profit, max_drawdown, avg_trade_pl, profit_factor, sharpe_ratio, expectancy, max_consec_loss, avg_win, avg_loss, entry_ibs, exit_ibs, ledger_json, max_loss_pts, total_points))
     conn.commit()
     conn.close()
 

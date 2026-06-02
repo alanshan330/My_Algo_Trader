@@ -64,9 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Create Headers
         const rawHeaders = Object.keys(dataArray[0]);
-        const hiddenCols = ['ledger_json', 'id', 'avg_loss', 'avg_win', 'expectancy', 'max_consec_loss', 'profit_factor', 'sharpe_ratio', 'total_profit', 'best_profit', 'P/L USD', 'Dollars'];
+        const hiddenCols = ['ledger_json', 'id', 'avg_loss', 'avg_win', 'expectancy', 'max_consec_loss', 'profit_factor', 'sharpe_ratio', 'total_profit', 'best_profit', 'P/L USD', 'Dollars', 'max_drawdown'];
         
-        const desiredOrder = ['strategy', 'ticker', 'timeframe', 'entry_ibs', 'exit_ibs', 'total_trades', 'win_rate', 'avg_trade_pl', 'max_drawdown', 'timestamp'];
+        const desiredOrder = ['strategy', 'ticker', 'timeframe', 'entry_ibs', 'exit_ibs', 'total_trades', 'win_rate', 'total_points', 'avg_trade_pl', 'max_loss_pts', 'timestamp'];
         const headers = rawHeaders.filter(h => !hiddenCols.includes(h)).sort((a, b) => {
             const indexA = desiredOrder.indexOf(a);
             const indexB = desiredOrder.indexOf(b);
@@ -84,8 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'total_trades': 'Trades',
             'win_rate': 'Win %',
             'total_profit': 'Net Profit',
-            'max_drawdown': 'Max DD (pts)',
             'avg_trade_pl': 'Avg P/L (pts)',
+            'total_points': 'Total Pts',
             'entry_ibs': 'Entry IBS',
             'exit_ibs': 'Exit IBS',
             'best_params': 'Best Params',
