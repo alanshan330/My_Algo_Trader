@@ -317,7 +317,7 @@ def run_optimize_api():
             json.dump(request.json, f, indent=4)
             
         # Run subprocess and capture output (5-minute timeout to prevent infinite hang)
-        result = subprocess.run([sys.executable, script_path], capture_output=True, text=True, timeout=300)
+        result = subprocess.run([sys.executable, script_path], capture_output=True, text=True, timeout=300, encoding='utf-8', errors='replace')
         
         # Read the latest generated report to send back to the UI
         search_pattern = os.path.join(ROOT_DIR, "results", "ibs_optimization_report_*.csv")

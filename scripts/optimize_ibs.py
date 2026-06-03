@@ -340,7 +340,7 @@ def main():
     results_df = pd.DataFrame(results).sort_values("composite_score", ascending=False)
 
     print("\n" + "="*80)
-    print(f"  IBS PARAMETER OPTIMIZATION RESULTS — Top 20 Combinations")
+    print(f"  IBS PARAMETER OPTIMIZATION RESULTS -- Top 20 Combinations")
     print(f"  Symbol: {sym_to_use} | {start_date.date()} to {end_date.date()} | Mode: {saved_strategy}")
     print("="*80)
     print(f"  {'Rank':<5} {'Score':<7} {'Entry':<8} {'Exit':<8} {'Trades':<8} {'WinRate':<10} {'Total Pts':>10} {'Max Loss':>10}")
@@ -393,6 +393,9 @@ def main():
                     continue
                 # Core = wider entry (higher), Deep Dip = tighter entry (lower)
                 if core['entry'] < dd['entry']:
+                    continue
+                # Require meaningful separation between the two legs
+                if core['entry'] - dd['entry'] < 0.05:
                     continue
                     
                 r_core = run_backtest(df, core['entry'], core['exit'], True,
