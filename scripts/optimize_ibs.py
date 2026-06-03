@@ -309,32 +309,32 @@ def main():
     highest_avg = max(abs(r["avg_pts"]) for r in results) or 1
 
     for r in results:
-        # Total profit score (35 pts) — still the biggest factor
-        profit_score = (r["total_pts"] / highest_pts) * 35 if r["total_pts"] > 0 else 0
+        # Win rate score (30 pts) — consistency is #1
+        win_score = (r["win_rate"] / 100.0) * 30.0
         
-        # Average trade quality (15 pts) — rewards fewer, higher-quality trades
-        avg_score = (r["avg_pts"] / highest_avg) * 15 if r["avg_pts"] > 0 else 0
-        
-        # Max loss / risk score (20 pts) — smaller single loss = better
+        # Max loss / risk score (25 pts) — smaller single loss = sleep better
         loss_abs = abs(r["max_loss"])
         if loss_abs == 0:
-            loss_score = 20.0
+            loss_score = 25.0
         else:
-            loss_score = (max(smallest_loss_abs, 0.01) / max(loss_abs, 0.01)) * 20.0
-            loss_score = min(loss_score, 20.0)
-            
-        # Win rate score (20 pts) — consistency
-        win_score = (r["win_rate"] / 100.0) * 20.0
+            loss_score = (max(smallest_loss_abs, 0.01) / max(loss_abs, 0.01)) * 25.0
+            loss_score = min(loss_score, 25.0)
+        
+        # Total profit score (20 pts) — enough profit, not max profit
+        profit_score = (r["total_pts"] / highest_pts) * 20 if r["total_pts"] > 0 else 0
+        
+        # Average trade quality (15 pts)
+        avg_score = (r["avg_pts"] / highest_avg) * 15 if r["avg_pts"] > 0 else 0
         
         # Contract exposure score (10 pts) — lower exposure = safer
         cont = max(r["max_contracts"], 1)
         cont_score = (lowest_max_cont / cont) * 10.0
         
-        r["composite_score"] = profit_score + avg_score + loss_score + win_score + cont_score
+        r["composite_score"] = win_score + loss_score + profit_score + avg_score + cont_score
+        r["s_winrate"] = round(win_score, 1)
+        r["s_risk"] = round(loss_score, 1)
         r["s_profit"] = round(profit_score, 1)
         r["s_avg"] = round(avg_score, 1)
-        r["s_risk"] = round(loss_score, 1)
-        r["s_winrate"] = round(win_score, 1)
         r["s_exposure"] = round(cont_score, 1)
 
     results_df = pd.DataFrame(results).sort_values("composite_score", ascending=False)
@@ -459,7 +459,7 @@ def main():
         print(f"  Tested {pair_count} blend pairs.")
         
         if blend_results:
-            # Blend scoring: rewards diversification + Return/Drawdown
+            # Blend scoring: consistency-first (WR + risk control + trade frequency)
             b_highest_pts = max(r['total_pts'] for r in blend_results)
             b_highest_pts = b_highest_pts if b_highest_pts > 0 else 1
             b_highest_ratio = max(r['ret_dd_ratio'] for r in blend_results)
@@ -467,27 +467,39 @@ def main():
             b_max_spread = max(r['entry_spread'] for r in blend_results) or 0.01
             b_smallest_loss = min(abs(r['max_loss']) for r in blend_results)
             b_highest_avg = max(abs(r['avg_pts']) for r in blend_results) or 1
+            b_most_trades = max(r['trades'] for r in blend_results) or 1
             
             for r in blend_results:
-                ratio_score = (r['ret_dd_ratio'] / b_highest_ratio) * 25 if r['ret_dd_ratio'] > 0 else 0
-                profit_score = (r['total_pts'] / b_highest_pts) * 20 if r['total_pts'] > 0 else 0
-                diversity_score = (r['entry_spread'] / b_max_spread) * 15
-                win_score = (r['win_rate'] / 100.0) * 15
-                avg_score = (r['avg_pts'] / b_highest_avg) * 15 if r['avg_pts'] > 0 else 0
+                # Win rate (25 pts) — consistency is king
+                win_score = (r['win_rate'] / 100.0) * 25
+                
+                # Max loss / risk (20 pts) — smaller worst-case loss
                 loss_abs = abs(r['max_loss'])
                 if loss_abs == 0:
-                    loss_score = 10.0
+                    loss_score = 20.0
                 else:
-                    loss_score = (max(b_smallest_loss, 0.01) / max(loss_abs, 0.01)) * 10.0
-                    loss_score = min(loss_score, 10.0)
+                    loss_score = (max(b_smallest_loss, 0.01) / max(loss_abs, 0.01)) * 20.0
+                    loss_score = min(loss_score, 20.0)
                 
-                r['blend_score'] = ratio_score + profit_score + diversity_score + win_score + avg_score + loss_score
-                r['s_retdd'] = round(ratio_score, 1)
-                r['s_profit'] = round(profit_score, 1)
-                r['s_diversity'] = round(diversity_score, 1)
+                # Return/Drawdown ratio (15 pts) — still valuable, not dominant
+                ratio_score = (r['ret_dd_ratio'] / b_highest_ratio) * 15 if r['ret_dd_ratio'] > 0 else 0
+                
+                # Trade count (15 pts) — more trades = steadier income
+                trade_score = (r['trades'] / b_most_trades) * 15
+                
+                # Entry diversity (15 pts) — the point of blending
+                diversity_score = (r['entry_spread'] / b_max_spread) * 15
+                
+                # Avg trade quality (10 pts)
+                avg_score = (r['avg_pts'] / b_highest_avg) * 10 if r['avg_pts'] > 0 else 0
+                
+                r['blend_score'] = win_score + loss_score + ratio_score + trade_score + diversity_score + avg_score
                 r['s_winrate'] = round(win_score, 1)
-                r['s_avg'] = round(avg_score, 1)
                 r['s_risk'] = round(loss_score, 1)
+                r['s_retdd'] = round(ratio_score, 1)
+                r['s_trades'] = round(trade_score, 1)
+                r['s_diversity'] = round(diversity_score, 1)
+                r['s_avg'] = round(avg_score, 1)
             
             blend_df = pd.DataFrame(blend_results).sort_values('blend_score', ascending=False).head(10)
             

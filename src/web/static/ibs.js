@@ -252,36 +252,36 @@ document.addEventListener('DOMContentLoaded', () => {
                                 
                                 let segments, labels;
                                 if (isBlend) {
-                                    // Blend scoring: 25 Ret/DD + 20 Profit + 15 Diversity + 15 WR + 15 Avg + 10 Risk
-                                    const s = { rd: c.s_retdd||0, p: c.s_profit||0, d: c.s_diversity||0, w: c.s_winrate||0, a: c.s_avg||0, r: c.s_risk||0 };
+                                    // Blend scoring: 25 WR + 20 Risk + 15 Ret/DD + 15 Trades + 15 Diversity + 10 Avg
+                                    const s = { w: c.s_winrate||0, r: c.s_risk||0, rd: c.s_retdd||0, t: c.s_trades||0, d: c.s_diversity||0, a: c.s_avg||0 };
                                     segments = `
-                                        <div style="width:${s.rd}%; background:#2dd4bf;" title="Ret/DD: ${s.rd}/25"></div>
-                                        <div style="width:${s.p}%; background:#34d399;" title="Profit: ${s.p}/20"></div>
-                                        <div style="width:${s.d}%; background:#fb923c;" title="Diversity: ${s.d}/15"></div>
-                                        <div style="width:${s.w}%; background:#fbbf24;" title="Win Rate: ${s.w}/15"></div>
-                                        <div style="width:${s.a}%; background:#60a5fa;" title="Avg/Trade: ${s.a}/15"></div>
-                                        <div style="width:${s.r}%; background:#f87171;" title="Risk: ${s.r}/10"></div>`;
-                                    labels = `
-                                        <span style="color:#2dd4bf;">RD:${s.rd}</span>
-                                        <span style="color:#34d399;">P:${s.p}</span>
-                                        <span style="color:#fb923c;">D:${s.d}</span>
-                                        <span style="color:#fbbf24;">W:${s.w}</span>
-                                        <span style="color:#60a5fa;">A:${s.a}</span>
-                                        <span style="color:#f87171;">R:${s.r}</span>`;
-                                } else {
-                                    // Single-combo scoring: 35 Profit + 15 Avg + 20 Risk + 20 WR + 10 Exposure
-                                    const s = { p: c.s_profit||0, a: c.s_avg||0, r: c.s_risk||0, w: c.s_winrate||0, e: c.s_exposure||0 };
-                                    segments = `
-                                        <div style="width:${s.p}%; background:#34d399;" title="Profit: ${s.p}/35"></div>
-                                        <div style="width:${s.a}%; background:#60a5fa;" title="Avg/Trade: ${s.a}/15"></div>
+                                        <div style="width:${s.w}%; background:#fbbf24;" title="Win Rate: ${s.w}/25"></div>
                                         <div style="width:${s.r}%; background:#f87171;" title="Risk: ${s.r}/20"></div>
-                                        <div style="width:${s.w}%; background:#fbbf24;" title="Win Rate: ${s.w}/20"></div>
+                                        <div style="width:${s.rd}%; background:#2dd4bf;" title="Ret/DD: ${s.rd}/15"></div>
+                                        <div style="width:${s.t}%; background:#34d399;" title="Trades: ${s.t}/15"></div>
+                                        <div style="width:${s.d}%; background:#fb923c;" title="Diversity: ${s.d}/15"></div>
+                                        <div style="width:${s.a}%; background:#60a5fa;" title="Avg/Trade: ${s.a}/10"></div>`;
+                                    labels = `
+                                        <span style="color:#fbbf24;">W:${s.w}</span>
+                                        <span style="color:#f87171;">R:${s.r}</span>
+                                        <span style="color:#2dd4bf;">RD:${s.rd}</span>
+                                        <span style="color:#34d399;">T:${s.t}</span>
+                                        <span style="color:#fb923c;">D:${s.d}</span>
+                                        <span style="color:#60a5fa;">A:${s.a}</span>`;
+                                } else {
+                                    // Single-combo scoring: 30 WR + 25 Risk + 20 Profit + 15 Avg + 10 Exposure
+                                    const s = { w: c.s_winrate||0, r: c.s_risk||0, p: c.s_profit||0, a: c.s_avg||0, e: c.s_exposure||0 };
+                                    segments = `
+                                        <div style="width:${s.w}%; background:#fbbf24;" title="Win Rate: ${s.w}/30"></div>
+                                        <div style="width:${s.r}%; background:#f87171;" title="Risk: ${s.r}/25"></div>
+                                        <div style="width:${s.p}%; background:#34d399;" title="Profit: ${s.p}/20"></div>
+                                        <div style="width:${s.a}%; background:#60a5fa;" title="Avg/Trade: ${s.a}/15"></div>
                                         <div style="width:${s.e}%; background:#a78bfa;" title="Exposure: ${s.e}/10"></div>`;
                                     labels = `
+                                        <span style="color:#fbbf24;">W:${s.w}</span>
+                                        <span style="color:#f87171;">R:${s.r}</span>
                                         <span style="color:#34d399;">P:${s.p}</span>
                                         <span style="color:#60a5fa;">A:${s.a}</span>
-                                        <span style="color:#f87171;">R:${s.r}</span>
-                                        <span style="color:#fbbf24;">W:${s.w}</span>
                                         <span style="color:#a78bfa;">E:${s.e}</span>`;
                                 }
                                 
